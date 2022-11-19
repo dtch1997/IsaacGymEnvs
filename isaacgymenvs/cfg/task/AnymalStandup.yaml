@@ -17,7 +17,7 @@ env:
 
   baseInitState:
     pos: [0.0, 0.0, 0.62] # x,y,z [m]
-    rot: [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
+    rot: [0.707, 0.0, 0.0, 0.707] # x,y,z,w [quat]
     vLinear: [0.0, 0.0, 0.0]  # x,y,z [m/s]
     vAngular: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
 
@@ -59,6 +59,7 @@ env:
     linearVelocityXYRewardScale: 1.0
     angularVelocityZRewardScale: 0.5
     torqueRewardScale: -0.000025 
+    standupRewardScale: 1.0
 
     # normalization
     linearVelocityScale: 2.0
