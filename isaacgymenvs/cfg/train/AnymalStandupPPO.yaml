@@ -36,7 +36,7 @@ params:
   load_path: ${...checkpoint} # path to the checkpoint to load
 
   config:
-    name: ${resolve_default:Anymal,${....experiment}}
+    name: ${resolve_default:AnymalStandup,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
     ppo: True
