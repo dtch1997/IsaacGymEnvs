@@ -179,7 +179,7 @@ class VecTask(Env):
         """
         super().__init__(config, rl_device, sim_device, graphics_device_id, headless)
         self.virtual_screen_capture = virtual_screen_capture
-        self.virtual_display = None
+        self.virtual_display = None 
         if self.virtual_screen_capture:
             from .mysmartdisplay import SmartDisplay
             self.virtual_display = SmartDisplay(size=SCREEN_CAPTURE_RESOLUTION)
