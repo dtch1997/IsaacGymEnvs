@@ -181,7 +181,7 @@ class VecTask(Env):
         self.virtual_screen_capture = virtual_screen_capture
         self.virtual_display = None
         if self.virtual_screen_capture:
-            from pyvirtualdisplay.smartdisplay import SmartDisplay
+            from .mysmartdisplay import SmartDisplay
             self.virtual_display = SmartDisplay(size=SCREEN_CAPTURE_RESOLUTION)
             self.virtual_display.start()
         self.force_render = force_render
