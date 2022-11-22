@@ -47,9 +47,11 @@ from .shadow_hand import ShadowHand
 from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
 from .anymal_standup import AnymalStandup
+from .a1 import A1
 
 # Mappings from strings to environments
 isaacgym_task_map = {
+    "A1": A1,
     "AllegroHand": AllegroHand,
     "Ant": Ant,
     "Anymal": Anymal,
