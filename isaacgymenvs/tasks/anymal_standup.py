@@ -345,8 +345,8 @@ def compute_anymal_reward(
     rew_torque = torch.sum(torch.square(torques), dim=1) * rew_scales["torque"]
 
     # fallen penalty
-    base_rpy = get_euler_xyz(base_quat)
-    rew_standup = torch.cos(base_rpy[:,0])
+    base_r, base_p, base_y = get_euler_xyz(base_quat)
+    rew_standup = torch.cos(base_r)
 
     # total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
     total_reward = rew_standup
