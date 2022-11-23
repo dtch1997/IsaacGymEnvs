@@ -345,9 +345,8 @@ def compute_anymal_reward(
     rew_torque = torch.sum(torch.square(torques), dim=1) * rew_scales["torque"]
 
     # fallen penalty
-    # Get the mean torque across 4 legs, for each robot
-    mean_torque = torch.mean((torch.norm(contact_forces[:, knee_indices, :], dim=2)), dim=1)
-    rew_standup = torch.exp(-mean_torque / 500)
+    base_rpy = get_euler_xyz(base_quat)
+    rew_standup = torch.cos(base_rpy[:,0])
 
     # total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
     total_reward = rew_standup
