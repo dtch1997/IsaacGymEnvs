@@ -344,14 +344,18 @@ def compute_anymal_reward(
     # torque penalty
     rew_torque = torch.sum(torch.square(torques), dim=1) * rew_scales["torque"]
 
-    total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
-    total_reward = torch.clip(total_reward, 0., None)
+    # fallen penalty
+    is_fallen = torch.mean((torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1.).to(torch.float32), dim=1)
+    rew_standup = 1 - is_fallen
+
+    # total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
+    total_reward = rew_standup
+    # total_reward = torch.clip(total_reward, 0., None)
     # reset agents
-    # reset = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.
+    reset = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.
     # reset = reset | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
     time_out = episode_lengths >= max_episode_length - 1  # no terminal reward for time-outs
-    # reset = reset | time_out
-    reset = time_out
+    reset = reset | time_out
 
     return total_reward.detach(), reset
 
