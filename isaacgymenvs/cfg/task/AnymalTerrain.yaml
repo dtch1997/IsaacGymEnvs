@@ -41,8 +41,8 @@ env:
 
   control:
     # PD Drive parameters:
-    stiffness: 80.0  # [N*m/rad]
-    damping: 2.0     # [N*m*s/rad]
+    stiffness: 40  # [N*m/rad]
+    damping: 0.5     # [N*m*s/rad]
     # action scale: target angle = actionScale * action + defaultAngle
     actionScale: 0.5
     # decimation: Number of control action updates @ sim DT per policy DT
@@ -75,6 +75,7 @@ env:
   learn:
     allowKneeContacts: true
     # rewards
+    survivalRewardScale: 4.0
     terminalReward: 0.0
     linearVelocityXYRewardScale: 0 #1.0
     linearVelocityZRewardScale: 0 #-4.0
