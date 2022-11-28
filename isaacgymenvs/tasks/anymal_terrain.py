@@ -290,7 +290,7 @@ class AnymalTerrain(VecTask):
         self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base")
 
     def check_termination(self):
-        self.reset_buf = torch.norm(self.contact_forces[:, self.base_index, :], dim=1) > 1.
+        self.reset_buf = torch.zeros_like(self.contact_forces[:, self.base_index, 0])
         if not self.allow_knee_contacts:
             knee_contact = torch.norm(self.contact_forces[:, self.knee_indices, :], dim=2) > 1.
             self.reset_buf |= torch.any(knee_contact, dim=1)

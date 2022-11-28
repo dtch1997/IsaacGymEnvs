@@ -11,7 +11,7 @@ env:
   enableDebugVis: False
 
   terrain:
-    terrainType: trimesh # none, plane, or trimesh
+    terrainType: plane # none, plane, or trimesh
     staticFriction: 1.0  # [-]
     dynamicFriction: 1.0  # [-]
     restitution: 0.        # [-]
@@ -28,8 +28,8 @@ env:
     slopeTreshold: 0.5
 
   baseInitState:
-    pos: [0.0, 0.0, 0.62] # x,y,z [m]
-    rot: [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
+    pos: [0.0, 0.0, 0.3] # x,y,z [m]
+    rot: [0.707, 0.0, 0.0, 0.707] # x,y,z,w [quat]
     vLinear: [0.0, 0.0, 0.0]  # x,y,z [m/s]
     vAngular: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
 
@@ -76,11 +76,11 @@ env:
     allowKneeContacts: true
     # rewards
     terminalReward: 0.0
-    linearVelocityXYRewardScale: 1.0
-    linearVelocityZRewardScale: -4.0
-    angularVelocityXYRewardScale: -0.05
-    angularVelocityZRewardScale: 0.5
-    orientationRewardScale: -0. #-1.
+    linearVelocityXYRewardScale: 0 #1.0
+    linearVelocityZRewardScale: 0 #-4.0
+    angularVelocityXYRewardScale: 0 #-0.05
+    angularVelocityZRewardScale: 0 #0.5
+    orientationRewardScale: -1. #-1.
     torqueRewardScale: -0.00002 # -0.000025
     jointAccRewardScale: -0.0005 # -0.0025
     baseHeightRewardScale: -0.0 #5
