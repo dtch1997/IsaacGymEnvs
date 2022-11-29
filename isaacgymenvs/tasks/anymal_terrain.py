@@ -73,6 +73,7 @@ class AnymalTerrain(VecTask):
         self.rew_scales["action_rate"] = self.cfg["env"]["learn"]["actionRateRewardScale"]
         self.rew_scales["hip"] = self.cfg["env"]["learn"]["hipRewardScale"]
         self.rew_scales["survival"] = self.cfg["env"]["learn"]["survivalRewardScale"]
+        self.rew_scales["knee_contact"] = self.cfg["env"]["learn"]["kneeContactRewardScale"]
 
         #command ranges
         self.command_x_range = self.cfg["env"]["randomCommandVelocityRanges"]["linear_x"]
@@ -154,7 +155,8 @@ class AnymalTerrain(VecTask):
         torch_zeros = lambda : torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
         self.episode_sums = {"lin_vel_xy": torch_zeros(), "lin_vel_z": torch_zeros(), "ang_vel_z": torch_zeros(), "ang_vel_xy": torch_zeros(),
                              "orient": torch_zeros(), "torques": torch_zeros(), "joint_acc": torch_zeros(), "base_height": torch_zeros(),
-                             "air_time": torch_zeros(), "collision": torch_zeros(), "stumble": torch_zeros(), "action_rate": torch_zeros(), "hip": torch_zeros()}
+                             "air_time": torch_zeros(), "collision": torch_zeros(), "stumble": torch_zeros(), "action_rate": torch_zeros(), "hip": torch_zeros(), 
+                            "survival": torch_zeros(), "knee_contact": torch_zeros()}
 
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
         self.init_done = True
@@ -325,6 +327,11 @@ class AnymalTerrain(VecTask):
         # survival bonus
         rew_survival = 1.0 * self.rew_scales['survival']
 
+        # knee contact penalty
+        knee_contact = torch.norm(self.contact_forces[:, self.knee_indices, :], dim=2) > 1.
+        mean_knee_contact = torch.mean(knee_contact.to(torch.float32), dim=1)
+        rew_knee_contact = mean_knee_contact * self.rew_scales["knee_contact"]
+
         # orientation penalty
         rew_orient = torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1) * self.rew_scales["orient"]
 
@@ -362,7 +369,8 @@ class AnymalTerrain(VecTask):
 
         # total reward
         self.rew_buf = rew_lin_vel_xy + rew_ang_vel_z + rew_lin_vel_z + rew_ang_vel_xy + rew_orient + rew_base_height +\
-                    rew_torque + rew_joint_acc + rew_collision + rew_action_rate + rew_airTime + rew_hip + rew_stumble + rew_survival
+                    rew_torque + rew_joint_acc + rew_collision + rew_action_rate + rew_airTime + rew_hip + rew_stumble +\
+                    rew_survival + rew_knee_contact
         self.rew_buf = torch.clip(self.rew_buf, min=0., max=None)
 
         # add termination reward
@@ -382,6 +390,8 @@ class AnymalTerrain(VecTask):
         self.episode_sums["air_time"] += rew_airTime
         self.episode_sums["base_height"] += rew_base_height
         self.episode_sums["hip"] += rew_hip
+        self.episode_sums["survival"] += rew_survival
+        self.episode_sums["knee_contact"] += rew_knee_contact
 
     def reset_idx(self, env_ids):
         positions_offset = torch_rand_float(0.9, 1.1, (len(env_ids), self.num_dof), device=self.device)
