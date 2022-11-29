@@ -112,7 +112,7 @@ env:
     #randomization
     randomizeFriction: true
     frictionRange: [0.5, 1.25]
-    pushRobots: true
+    pushRobots: false
     pushInterval_s: 15
 
     # episode length in seconds
