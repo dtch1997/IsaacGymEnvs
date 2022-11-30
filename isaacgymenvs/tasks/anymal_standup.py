@@ -347,6 +347,15 @@ def compute_anymal_reward(
     # fallen penalty
     base_r, base_p, base_y = get_euler_xyz(base_quat)
     rew_standup = torch.cos(base_r)
+    # TODO: xyz position
+    # - able to recover to default z position
+    # - able to recover to the right direction
+    # - zero angle to the normal
+    # - refer to AnymalTerrain rwd func
+    # - ignore velocity for now
+    # - do more rwd function engineering
+    # - experiment with different weights
+    # - cts. rewards are easiest to learn
 
     # total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
     total_reward = rew_standup
