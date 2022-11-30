@@ -129,7 +129,7 @@ env:
   enableCameraSensors: False
 
 sim:
-  dt: 0.001
+  dt: 0.005
   substeps: 1
   up_axis: "z"
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
