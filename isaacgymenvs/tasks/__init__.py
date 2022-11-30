@@ -47,6 +47,7 @@ from .shadow_hand import ShadowHand
 from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
 from .anymal_standup import AnymalStandup
+from .anymal_terrain import AnymalTerrain
 from .a1 import A1
 
 # Mappings from strings to environments
