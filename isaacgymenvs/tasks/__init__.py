@@ -29,7 +29,7 @@
 
 from .ant import Ant
 from .anymal import Anymal
-from .anymal_terrain import AnymalTerrain
+from .anymal_standup_v0 import AnymalStandup_v0
 from .ball_balance import BallBalance
 from .cartpole import Cartpole 
 from .factory.factory_task_gears import FactoryTaskGears
@@ -46,12 +46,18 @@ from .quadcopter import Quadcopter
 from .shadow_hand import ShadowHand
 from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
+from .anymal_standup import AnymalStandup
+from .anymal_terrain import AnymalTerrain
+from .a1 import A1
 
 # Mappings from strings to environments
 isaacgym_task_map = {
+    "A1": A1,
     "AllegroHand": AllegroHand,
     "Ant": Ant,
     "Anymal": Anymal,
+    "AnymalStandup": AnymalStandup,
+    "AnymalStandup_v0": AnymalStandup_v0, 
     "AnymalTerrain": AnymalTerrain,
     "BallBalance": BallBalance,
     "Cartpole": Cartpole,
