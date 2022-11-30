@@ -29,7 +29,7 @@
 
 from .ant import Ant
 from .anymal import Anymal
-from .anymal_terrain import AnymalTerrain
+from .anymal_standup_v0 import AnymalStandup_v0
 from .ball_balance import BallBalance
 from .cartpole import Cartpole 
 from .factory.factory_task_gears import FactoryTaskGears
@@ -55,7 +55,8 @@ isaacgym_task_map = {
     "AllegroHand": AllegroHand,
     "Ant": Ant,
     "Anymal": Anymal,
-    "AnymalStandup": AnymalStandup, 
+    "AnymalStandup": AnymalStandup,
+    "AnymalStandup_v0": AnymalStandup_v0, 
     "AnymalTerrain": AnymalTerrain,
     "BallBalance": BallBalance,
     "Cartpole": Cartpole,

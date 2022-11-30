@@ -1,5 +1,5 @@
 # used to create the object
-name: AnymalTerrain
+name: AnymalStandup_v0
 
 physics_engine: 'physx'
 
