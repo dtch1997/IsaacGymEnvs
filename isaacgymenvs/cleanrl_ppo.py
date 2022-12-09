@@ -43,6 +43,8 @@ import torch.optim as optim
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
+CHECKPOINT_FREQUENCY = 50
+starting_update = 1
 
 def parse_args():
     # fmt: off
@@ -387,6 +389,10 @@ if __name__ == "__main__":
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+        if update % CHECKPOINT_FREQUENCY == 0:
+            torch.save(agent.state_dict(), f"{wandb.run.dir}/{args.env_id}.pt")
+            wandb.save(f"{wandb.run.dir}/{args.env_id}.pt", policy="now")
 
     # envs.close()
     writer.close()
