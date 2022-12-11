@@ -208,13 +208,13 @@ class Encoder(nn.Module):
         # then the log density of z_true is given by negative mean square error with z_pred
         return torch.mean(torch.square(z_pred - z_true))
 
-def sample_latent(size):
+def sample_latent(size=None, dtype=torch.float):
     """Sample the latent variable
     
     We parametrize our latent as a uniform distribution on N-dim hypersphere
     This is achieved by sampling a Gaussian and projecting it back to the sphere
     """
-    t = torch.normal(mean = 0, std = 1, size=size)
+    t = torch.normal(mean = 0, std = 1, size=size, dtype=dtype)
     t_norm = torch.norm(t, dim = -1, keepdim=True)
     return t / t_norm
 
@@ -300,6 +300,7 @@ if __name__ == "__main__":
     global_step = 0
     start_time = time.time()
     next_obs = envs.reset()
+    next_latent = sample_latent((args.num_envs, latent_dim), dtype=torch.float).to(device)
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
@@ -313,6 +314,7 @@ if __name__ == "__main__":
         for step in range(0, args.num_steps):
             global_step += 1 * args.num_envs
             obs[step] = next_obs
+            latents[step] = next_latent
             dones[step] = next_done
 
             # ALGO LOGIC: action logic
@@ -355,6 +357,7 @@ if __name__ == "__main__":
 
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_latents = latents.reshape((-1, latent_dim))
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
