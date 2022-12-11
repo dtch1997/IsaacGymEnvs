@@ -208,6 +208,17 @@ class Encoder(nn.Module):
         # then the log density of z_true is given by negative mean square error with z_pred
         return torch.mean(torch.square(z_pred - z_true))
 
+def sample_latent(size):
+    """Sample the latent variable
+    
+    We parametrize our latent as a uniform distribution on N-dim hypersphere
+    This is achieved by sampling a Gaussian and projecting it back to the sphere
+    """
+    t = torch.normal(mean = 0, std = 1, size=size)
+    t_norm = torch.norm(t, dim = -1, keepdim=True)
+    return t / t_norm
+
+
 class ExtractObsWrapper(gym.ObservationWrapper):
     def observation(self, obs):
         return obs["obs"]
@@ -271,10 +282,13 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs).to(device)
+    encoder = Encoder(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
+    prev_obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
+    latents = torch.zeros((args.num_steps, args.num_envs, latent_dim), dtype=torch.float).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, dtype=torch.float).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), dtype=torch.float).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs), dtype=torch.float).to(device)
