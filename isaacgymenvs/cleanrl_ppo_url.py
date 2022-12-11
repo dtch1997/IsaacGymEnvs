@@ -43,6 +43,7 @@ import torch.optim as optim
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
+latent_dim = 128
 CHECKPOINT_FREQUENCY = 50
 starting_update = 1
 
@@ -157,14 +158,14 @@ class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 256)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod() + latent_dim, 256)),
             nn.Tanh(),
             layer_init(nn.Linear(256, 256)),
             nn.Tanh(),
             layer_init(nn.Linear(256, 1), std=1.0),
         )
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 256)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod() + latent_dim, 256)),
             nn.Tanh(),
             layer_init(nn.Linear(256, 256)),
             nn.Tanh(),
@@ -184,6 +185,28 @@ class Agent(nn.Module):
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
 
+class Encoder(nn.Module):
+    def __init__(self, envs):
+        super().__init__()
+        self.enc_mlp = nn.Sequential(
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod() * 2, 256)),
+            nn.Tanh(),
+            layer_init(nn.Linear(256, 256)),
+            nn.Tanh(),
+            layer_init(nn.Linear(256, latent_dim), std=1.0),
+        )
+
+    def cat_curr_next_s(self, s_curr, s_next):
+        return torch.cat([s_curr, s_next], dim=-1)
+
+    def get_enc_pred(self, s_curr, s_next):
+        combined_s = self.cat_curr_next_s(s_curr, s_next)
+        return self.enc_mlp(combined_s)
+
+    def calc_enc_loss(self, z_pred, z_true):
+        # If we parametrize the output of the encoder as a Gaussian distribution over latent preds
+        # then the log density of z_true is given by negative mean square error with z_pred
+        return torch.mean(torch.square(z_pred - z_true))
 
 class ExtractObsWrapper(gym.ObservationWrapper):
     def observation(self, obs):
