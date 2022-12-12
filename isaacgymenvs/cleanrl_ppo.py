@@ -65,6 +65,8 @@ def parse_args():
         help="the entity (team) of wandb's project")
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="whether to capture videos of the agent performances (check out `videos` folder)")
+    parser.add_argument("--render", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="whether to render simulation")
 
     # Algorithm specific arguments
     parser.add_argument("--env-id", type=str, default="Ant",
@@ -269,8 +271,7 @@ if __name__ == "__main__":
     num_updates = args.total_timesteps // args.batch_size
 
     if args.track and wandb.run.resumed:
-        starting_update = run.summary.get("charts/update") + 1
-        global_step = starting_update * args.batch_size
+        global_step = run.summary.get("global_step") + 1
         api = wandb.Api()
         run = api.run(f"{run.entity}/{run.project}/{run.id}")
         model = run.file("agent.pt")
@@ -278,7 +279,7 @@ if __name__ == "__main__":
         agent.load_state_dict(torch.load(
             f"models/{args.exp_name}/agent.pt", map_location=device))
         agent.eval()
-        print(f"resumed at update {starting_update}")
+        print(f"resumed at step {global_step}")
 
     for update in range(1, num_updates + 1):
         # Annealing the rate if instructed to do so.
@@ -301,6 +302,7 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, rewards[step], next_done, info = envs.step(action)
+            if args.render: envs.render()
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
                     if d:
