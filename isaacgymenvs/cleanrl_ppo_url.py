@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     agent = Agent(envs).to(device)
     encoder = Encoder(envs).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    optimizer = optim.Adam(list(agent.parameters()) + list(encoder.parameters()), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
@@ -420,7 +420,7 @@ if __name__ == "__main__":
                 encoder_loss = encoder.calc_enc_loss(mb_latents_pred, mb_latents)
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_coef
 
                 optimizer.zero_grad()
                 loss.backward()
