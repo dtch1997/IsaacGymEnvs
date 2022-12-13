@@ -98,6 +98,10 @@ def parse_args():
         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=2,
         help="coefficient of the value function")
+    parser.add_argument("--policy-coef", type=float, default=1.0,
+        help="coefficient of the policy loss. Default 1.0, set to 0 for unsupervised RL")
+    parser.add_argument("--enc-coef", type=float, default=0.0, 
+        help="coefficient of the encoder loss")
     parser.add_argument("--max-grad-norm", type=float, default=1,
         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=None,
