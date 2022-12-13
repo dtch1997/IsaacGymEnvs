@@ -431,7 +431,7 @@ if __name__ == "__main__":
                 encoder_loss = encoder.calc_enc_loss(mb_latents_pred, mb_latents)
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_coef
+                loss = pg_loss * args.policy_coef - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_coef
 
                 optimizer.zero_grad()
                 loss.backward()
