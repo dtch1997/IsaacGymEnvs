@@ -43,7 +43,7 @@ import torch.optim as optim
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-latent_dim = 16
+latent_dim = 128
 hidden_dim = 256
 CHECKPOINT_FREQUENCY = 50
 starting_update = 1
