@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
-    prev_obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
+    future_obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
     latents = torch.zeros((args.num_steps, args.num_envs, latent_dim), dtype=torch.float).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, dtype=torch.float).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), dtype=torch.float).to(device)
@@ -328,6 +328,8 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, rewards[step], next_done, info = envs.step(action)
+            # Track prev obs for encoder loss
+            future_obs[step] = next_obs
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
                     if d:
@@ -359,6 +361,7 @@ if __name__ == "__main__":
 
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_future_obs = future_obs.reshape((-1,) + envs.single_observation_space.shape)
         b_latents = latents.reshape((-1, latent_dim))
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -366,15 +369,15 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
+        # Optimizing the policy and value network and encoder
         clipfracs = []
         for epoch in range(args.update_epochs):
             b_inds = torch.randperm(args.batch_size).to(device)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
-
-                # import pdb; pdb.set_trace()
+                mb_latents = b_latents[mb_inds]
+                mb_latents_pred = encoder.get_enc_pred(b_future_obs[mb_inds], b_obs[mb_inds])
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_latents[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
@@ -408,6 +411,9 @@ if __name__ == "__main__":
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+
+                # Encoder loss
+                encoder_loss = encoder.calc_enc_loss(mb_latents_pred, mb_latents)
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
