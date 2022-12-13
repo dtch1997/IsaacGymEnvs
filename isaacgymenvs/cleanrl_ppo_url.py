@@ -236,7 +236,7 @@ if __name__ == "__main__":
     if args.track:
         import wandb
 
-        wandb.init(
+        run = wandb.init(
             project=args.wandb_project_name,
             entity=args.wandb_entity,
             sync_tensorboard=True,
@@ -309,6 +309,17 @@ if __name__ == "__main__":
     next_latent = sample_latent((args.num_envs, latent_dim), dtype=torch.float).to(device)
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
+
+    if args.track and wandb.run.resumed:
+        global_step = run.summary.get("global_step") + 1
+        api = wandb.Api()
+        run = api.run(f"{run.entity}/{run.project}/{run.id}")
+        model = run.file("agent.pt")
+        model.download(f"models/{args.exp_name}/")
+        agent.load_state_dict(torch.load(
+            f"models/{args.exp_name}/agent.pt", map_location=device))
+        agent.eval()
+        print(f"resumed at step {global_step}")
 
     for update in range(1, num_updates + 1):
         # Annealing the rate if instructed to do so.
