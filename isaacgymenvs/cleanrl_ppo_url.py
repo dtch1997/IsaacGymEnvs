@@ -456,8 +456,8 @@ if __name__ == "__main__":
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
         if update % CHECKPOINT_FREQUENCY == 0:
-            torch.save(agent.state_dict(), f"{wandb.run.dir}/{args.env_id}.pt")
-            wandb.save(f"{wandb.run.dir}/{args.env_id}.pt", policy="now")
+            torch.save(agent.state_dict(), f"{wandb.run.dir}/agent.pt")
+            wandb.save(f"{wandb.run.dir}/agent.pt", policy="now")
 
     # envs.close()
     writer.close()
