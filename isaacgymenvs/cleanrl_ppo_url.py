@@ -455,7 +455,7 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 # Encoder loss
-                encoder_loss = calc_enc_error(mb_latents_pred, mb_latents)
+                encoder_loss = calc_enc_loss(mb_latents_pred, mb_latents)
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss * args.policy_coef - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_coef
