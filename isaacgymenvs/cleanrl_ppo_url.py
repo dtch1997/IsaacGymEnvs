@@ -210,10 +210,17 @@ class Encoder(nn.Module):
         combined_s = self.cat_curr_next_s(s_curr, s_next)
         return self.enc_mlp(combined_s)
 
-    def calc_enc_loss(self, z_pred, z_true):
-        # If we parametrize the output of the encoder as a Gaussian distribution over latent preds
-        # then the log density of z_true is given by negative mean square error with z_pred
-        return torch.mean(torch.square(z_pred - z_true))
+def calc_enc_error(z_pred, z_true): 
+    # We assume that z_true is distributed uniformly on the unit hypersphere
+    # The posterior distribution is modeled as a Von Mises-Fisher distribution
+    err = z_pred * z_true
+    err = - torch.sum(err, dim=-1, keepdim=True)
+    return err
+
+def calc_enc_loss(z_pred, z_true):
+    enc_err = calc_enc_error(z_pred, z_true)
+    enc_loss = torch.mean(enc_err)
+    return enc_loss
 
 def sample_latent(size=None, dtype=torch.float):
     """Sample the latent variable
@@ -429,7 +436,7 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 # Encoder loss
-                encoder_loss = encoder.calc_enc_loss(mb_latents_pred, mb_latents)
+                encoder_loss = calc_enc_error(mb_latents_pred, mb_latents)
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss * args.policy_coef - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_coef
