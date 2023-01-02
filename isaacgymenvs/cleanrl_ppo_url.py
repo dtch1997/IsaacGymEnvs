@@ -350,7 +350,8 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, rewards[step], next_done, info = envs.step(action)
+            next_obs, reward, next_done, info = envs.step(action)
+            rewards[step] = reward
             # Track prev obs for encoder loss
             future_obs[step] = next_obs
             if 0 <= step <= 2:
