@@ -222,6 +222,18 @@ def calc_enc_loss(z_pred, z_true):
     enc_loss = torch.mean(enc_err)
     return enc_loss
 
+def calc_enc_rewards(enc, s_curr, s_next, z_true):
+    with torch.no_grad():
+        z_pred = enc.get_enc_pred(s_curr, s_next)
+        err = calc_enc_error(z_pred, z_true)
+        enc_r = torch.clamp_min(-err, 0.0)
+        enc_r *= 5 # TODO: Refactor enc_reward_scale into argparse arg
+    return enc_r
+
+def combine_rewards(task_rewards, url_rewards):
+    # TODO: Make weights configurable
+    return task_rewards * 0.0 + url_rewards * 1.0
+
 def sample_latent(size=None, dtype=torch.float):
     """Sample the latent variable
     
@@ -314,6 +326,10 @@ if __name__ == "__main__":
     global_step = 0
     start_time = time.time()
     next_obs = envs.reset()
+    # To avoid future_obs being 0 in the first iteration, we initialize
+    # it to be equal to initial obs. This means that future_obs will be
+    # the same as obs in the first step, but hopefully this is insignificant
+    future_obs[0] = next_obs
     next_latent = sample_latent((args.num_envs, latent_dim), dtype=torch.float).to(device)
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
@@ -351,6 +367,8 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action)
+            enc_reward = calc_enc_rewards(encoder, obs[step], future_obs[step], latents[step])
+            total_reward = combine_rewards(reward, enc_reward)
             rewards[step] = reward
             # Track prev obs for encoder loss
             future_obs[step] = next_obs
