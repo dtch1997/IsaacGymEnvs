@@ -43,8 +43,8 @@ import torch.optim as optim
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-latent_dim = 128
-hidden_dim = 256
+latent_dim = 2
+hidden_dim = 64
 CHECKPOINT_FREQUENCY = 50
 starting_update = 1
 
@@ -330,6 +330,9 @@ if __name__ == "__main__":
     # it to be equal to initial obs. This means that future_obs will be
     # the same as obs in the first step, but hopefully this is insignificant
     future_obs[0] = next_obs
+    # Latent is sampled differently for each environment
+    # TODO: Enable reset of latent on env reset
+    # Does it mean we need to implement it as a wrapper from the env observation?
     next_latent = sample_latent((args.num_envs, latent_dim), dtype=torch.float).to(device)
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
