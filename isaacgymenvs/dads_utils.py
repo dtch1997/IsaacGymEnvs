@@ -26,7 +26,7 @@ def calc_enc_error(z_pred, z_true):
     # We assume that z_true is distributed uniformly on the unit hypersphere
     # The posterior distribution is modeled as a Von Mises-Fisher distribution
     err = z_pred * z_true
-    err = - torch.sum(err, dim=-1, keepdim=True)
+    err = - torch.sum(err, dim=-1)
     return err
 
 def calc_enc_loss(z_pred, z_true):

@@ -116,8 +116,8 @@ def parse_args():
     # DADS-specific arguments
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--latent-dim", type=int, default=64)
-    parser.add_argument("--enc-rew-weight", type=float, default=0.0)
-    parser.add_argument("--task-rew-weight", type=float, default=1.0)
+    parser.add_argument("--enc-reward-weight", type=float, default=0.0)
+    parser.add_argument("--task-reward-weight", type=float, default=1.0)
 
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -265,7 +265,7 @@ if __name__ == "__main__":
     agent = Agent(envs, args.hidden_dim).to(device)
     # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
     enc_obs_dim = 4
-    encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim)
+    encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim).to(device)
     optimizer = optim.Adam(list(agent.parameters()) + list(encoder.parameters()), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
