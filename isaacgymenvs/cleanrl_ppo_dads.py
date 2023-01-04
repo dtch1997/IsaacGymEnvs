@@ -266,7 +266,7 @@ if __name__ == "__main__":
     # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
     enc_obs_dim = 4
     encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    optimizer = optim.Adam(list(agent.parameters()) + list(encoder.parameters()), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
