@@ -323,7 +323,9 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, rewards[step], next_done, info = envs.step(action)
+            next_obs, next_task_reward, next_done, info = envs.step(action)
+            # TODO: Modify rewards[step] with encoder reward
+            rewards[step] = next_task_reward
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
             # TODO: Re-sample latent for done environments
             if args.render: envs.render()
