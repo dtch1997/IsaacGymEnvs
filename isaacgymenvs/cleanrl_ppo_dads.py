@@ -264,7 +264,7 @@ if __name__ == "__main__":
 
     agent = Agent(envs, args.hidden_dim).to(device)
     # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
-    enc_obs_dim = 4
+    enc_obs_dim = 6
     encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim).to(device)
     optimizer = optim.Adam(list(agent.parameters()) + list(encoder.parameters()), lr=args.learning_rate, eps=1e-5)
 
@@ -330,7 +330,7 @@ if __name__ == "__main__":
             rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
             for idx, d in enumerate(next_done):
-                latents[idx] = dads_utils.sample_latent(1, args.latent_dim, device)
+                next_latent[idx] = dads_utils.sample_latent(1, args.latent_dim, device)
             if args.render: envs.render()
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_latent = latents.reshape((-1, args.latent_dim))
-        b_enc_obs = latents.reshape((-1, enc_obs_dim))
+        b_enc_obs = enc_obs.reshape((-1, enc_obs_dim))
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
