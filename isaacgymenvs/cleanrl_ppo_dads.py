@@ -415,8 +415,14 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                # Encoder loss
+                # Since the encoder loss and policy loss are w.r.t to entirely different parameters, 
+                # we can optimize them jointly using the same optimizer without any problems
+                mb_enc_preds = encoder.get_enc_pred(b_enc_obs[mb_inds])
+                encoder_loss = dads_utils.calc_enc_loss(mb_enc_preds, b_latent[mb_inds])
+
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss
 
                 optimizer.zero_grad()
                 loss.backward()
