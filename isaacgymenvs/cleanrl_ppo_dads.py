@@ -329,7 +329,8 @@ if __name__ == "__main__":
             next_enc_reward = dads_utils.calc_enc_rewards(encoder, next_enc_obs, next_latent)
             rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
-            # TODO: Re-sample latent for done environments
+            for idx, d in enumerate(next_done):
+                latents[idx] = dads_utils.sample_latent(1, args.latent_dim, device)
             if args.render: envs.render()
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
