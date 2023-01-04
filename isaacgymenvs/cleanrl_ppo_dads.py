@@ -261,14 +261,15 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs, args.hidden_dim).to(device)
-    encoder = dads_utils.Encoder(envs, args.hidden_dim, args.latent_dim)
+    # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
+    enc_obs_dim = 4
+    encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
-    prev_body_pos = torch.zeros((args.num_steps, args.num_envs, 2), dtype=torch.float).to(device)
-    curr_body_pos = torch.zeros((args.num_steps, args.num_envs, 2), dtype=torch.float).to(device)
-    latents = torch.zeros((args.num_envs, args.latent_dim), dtype=torch.float).to(device)
+    latents = torch.zeros((args.num_steps, args.num_envs, args.latent_dim), dtype=torch.float).to(device)
+    enc_obs = torch.zeros((args.num_steps, args.num_envs, enc_obs_dim), dtype=torch.float).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, dtype=torch.float).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), dtype=torch.float).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs), dtype=torch.float).to(device)
@@ -280,6 +281,12 @@ if __name__ == "__main__":
     global_step = 0
     start_time = time.time()
     next_obs = envs.reset()
+    # TODO: If necessary, initialize next_enc_obs to something reasonable
+    # I'm going to leave it for now because: 
+    #   - Currently, enc_obs should start at 0 anyway
+    #   - Even if it didn't, it only affects first time step
+    next_enc_obs = torch.zeros((args.num_envs, enc_obs_dim), dtype=torch.float).to(device)
+    next_latent = dads_utils.sample_latent(args.num_envs, args.latent_dim, device=device)
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
@@ -308,6 +315,8 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
+                latent_pred = encoder.get_enc_pred(next_enc_obs)
+                # TODO: Add next_latent as input to agent
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
@@ -315,6 +324,8 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, rewards[step], next_done, info = envs.step(action)
+            next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
+            # TODO: Re-sample latent for done environments
             if args.render: envs.render()
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
