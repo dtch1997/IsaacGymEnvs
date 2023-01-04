@@ -288,6 +288,7 @@ class Ant(VecTask):
 
         self.compute_observations()
         self.compute_reward(self.actions)
+        self.extras['body_pos'] = self.root_states[:,0:3]
 
         # debug viz
         if self.viewer and self.debug_viz:
