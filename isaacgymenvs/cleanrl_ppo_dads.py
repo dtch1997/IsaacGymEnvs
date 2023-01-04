@@ -116,6 +116,8 @@ def parse_args():
     # DADS-specific arguments
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--latent-dim", type=int, default=64)
+    parser.add_argument("--enc-rew-weight", type=float, default=0.0)
+    parser.add_argument("--task-rew-weight", type=float, default=1.0)
 
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -324,9 +326,8 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, next_task_reward, next_done, info = envs.step(action)
-            # TODO: Modify rewards[step] with encoder reward
             next_enc_reward = dads_utils.calc_enc_rewards(encoder, next_enc_obs, next_latent)
-            rewards[step] = next_task_reward
+            rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
             # TODO: Re-sample latent for done environments
             if args.render: envs.render()

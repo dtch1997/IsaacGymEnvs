@@ -34,12 +34,12 @@ def calc_enc_loss(z_pred, z_true):
     enc_loss = torch.mean(enc_err)
     return enc_loss
 
-def calc_enc_rewards(enc, s_curr, s_next, z_true):
+def calc_enc_rewards(enc, enc_obs, z_true, alpha=5):
     with torch.no_grad():
-        z_pred = enc(s_curr, s_next)
+        z_pred = enc.get_enc_pred(enc_obs)
         err = calc_enc_error(z_pred, z_true)
         enc_r = torch.clamp_min(-err, 0.0)
-        enc_r *= 5 # TODO: Refactor enc_reward_scale into argparse arg
+        enc_r *= alpha
     return enc_r
 
 class Encoder(nn.Module):
@@ -55,6 +55,3 @@ class Encoder(nn.Module):
 
     def get_enc_pred(self, enc_obs):
         return self.enc_mlp(enc_obs)
-
-def combine_rewards(task_rewards, url_rewards, task_reward_w, url_reward_w):
-    return task_rewards * task_reward_w + url_rewards * url_reward_w
