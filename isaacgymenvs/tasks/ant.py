@@ -272,6 +272,9 @@ class Ant(VecTask):
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 0
 
+        self.curr_body_pos = self.root_states[:,0:3]
+        self.prev_body_pos = self.curr_body_pos.clone()
+
     def pre_physics_step(self, actions):
         self.actions = actions.clone().to(self.device)
         forces = self.actions * self.joint_gears * self.power_scale
@@ -288,7 +291,10 @@ class Ant(VecTask):
 
         self.compute_observations()
         self.compute_reward(self.actions)
-        self.extras['body_pos'] = self.root_states[:,0:3]
+        self.prev_body_pos = self.curr_body_pos
+        self.curr_body_pos = self.root_states[:,0:3]
+        self.extras['prev_body_pos'] = self.curr_body_pos
+        self.extras['curr_body_pos'] = self.prev_body_pos
 
         # debug viz
         if self.viewer and self.debug_viz:
