@@ -347,6 +347,7 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
+            # TODO: Add next_latent as input to agent
             next_value = agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
@@ -363,6 +364,8 @@ if __name__ == "__main__":
 
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_latent = latents.reshape((-1, args.latent_dim))
+        b_enc_obs = latents.reshape((-1, enc_obs_dim))
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
@@ -377,7 +380,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                # import pdb; pdb.set_trace()
+                # TODO: Add b_latent[mb_inds] as input to agent
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
