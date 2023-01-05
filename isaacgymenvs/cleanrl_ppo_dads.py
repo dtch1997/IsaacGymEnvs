@@ -353,6 +353,7 @@ if __name__ == "__main__":
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
                     if d:
+                        # TODO: May be worth to log task return and exploration return separately
                         episodic_return = info["r"][idx].item()
                         print(f"global_step={global_step}, episodic_return={episodic_return}")
                         writer.add_scalar("charts/episodic_return", episodic_return, global_step)
@@ -452,6 +453,7 @@ if __name__ == "__main__":
                     break
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
+        # TODO: Add encoder loss to logger
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
