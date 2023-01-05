@@ -166,37 +166,55 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs, hidden_dim):
+class DADSAgent(nn.Module):
+    def __init__(self, envs, hidden_dim, latent_dim, enc_obs_dim):
         super().__init__()
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), hidden_dim)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod() + latent_dim, hidden_dim)),
             nn.Tanh(),
             layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
             layer_init(nn.Linear(hidden_dim, 1), std=1.0),
         )
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), hidden_dim)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod() + latent_dim, hidden_dim)),
             nn.Tanh(),
             layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
             layer_init(nn.Linear(hidden_dim, np.prod(envs.single_action_space.shape)), std=0.01),
         )
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.encoder = dads_utils.Encoder(enc_obs_dim, hidden_dim, latent_dim)
 
-    def get_value(self, x):
-        return self.critic(x)
+    def get_value(self, x, z):
+        agent_obs = torch.cat([x, z], dim=-1)
+        return self.critic(agent_obs)
 
-    def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
+    def get_action_and_value(self, x, z, action=None):
+        agent_obs = torch.cat([x, z], dim=-1)
+        action_mean = self.actor_mean(agent_obs)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(agent_obs)
 
+    def get_enc_pred(self, enc_obs):
+        return self.encoder.get_enc_pred(enc_obs)
+
+    def calc_enc_loss(self, z_pred, z_true):
+        enc_err = dads_utils.calc_enc_error(z_pred, z_true)
+        enc_loss = torch.mean(enc_err)
+        return enc_loss
+
+    def calc_enc_rewards(self, enc_obs, z_true, alpha=5):
+        with torch.no_grad():
+            z_pred = self.get_enc_pred(enc_obs)
+            err = dads_utils.calc_enc_error(z_pred, z_true)
+            enc_r = torch.clamp_min(-err, 0.0)
+            enc_r *= alpha
+        return enc_r
 
 class ExtractObsWrapper(gym.ObservationWrapper):
     def observation(self, obs):
@@ -262,11 +280,10 @@ if __name__ == "__main__":
     envs.single_observation_space = envs.observation_space
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs, args.hidden_dim).to(device)
     # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
     enc_obs_dim = 6
-    encoder = dads_utils.Encoder(enc_obs_dim, args.hidden_dim, args.latent_dim).to(device)
-    optimizer = optim.Adam(list(agent.parameters()) + list(encoder.parameters()), lr=args.learning_rate, eps=1e-5)
+    agent = DADSAgent(envs, args.hidden_dim, args.latent_dim, enc_obs_dim).to(device)
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
@@ -317,16 +334,16 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                latent_pred = encoder.get_enc_pred(next_enc_obs)
-                # TODO: Add next_latent as input to agent
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                latent_pred = agent.get_enc_pred(next_enc_obs)
+                action, logprob, _, value = agent.get_action_and_value(next_obs, next_latent)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, next_task_reward, next_done, info = envs.step(action)
-            next_enc_reward = dads_utils.calc_enc_rewards(encoder, next_enc_obs, next_latent)
+            # TODO: Refactor
+            next_enc_reward = agent.calc_enc_rewards(next_enc_obs, next_latent)
             rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
             # Re-sample the latent for done envs
@@ -349,7 +366,7 @@ if __name__ == "__main__":
         # bootstrap value if not done
         with torch.no_grad():
             # TODO: Add next_latent as input to agent
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(next_obs, next_latent).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -381,8 +398,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                # TODO: Add b_latent[mb_inds] as input to agent
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_latent[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -419,8 +435,9 @@ if __name__ == "__main__":
                 # Encoder loss
                 # Since the encoder loss and policy loss are w.r.t to entirely different parameters, 
                 # we can optimize them jointly using the same optimizer without any problems
-                mb_enc_preds = encoder.get_enc_pred(b_enc_obs[mb_inds])
-                encoder_loss = dads_utils.calc_enc_loss(mb_enc_preds, b_latent[mb_inds])
+                # TODO: Refactor 2 lines
+                mb_enc_preds = agent.get_enc_pred(b_enc_obs[mb_inds])
+                encoder_loss = agent.calc_enc_loss(mb_enc_preds, b_latent[mb_inds])
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss
