@@ -224,16 +224,21 @@ class ExtractObsWrapper(gym.ObservationWrapper):
 class IntrinsicRewardWrapper(gym.Wrapper):
     """ Wrapper to add intrinsic reward to the task reward"""
 
-    def __init__(self, env, agent, task_reward_weight, enc_reward_weight):
+    def __init__(self, env, task_reward_weight, enc_reward_weight):
         super(IntrinsicRewardWrapper, self).__init__(env)
-        self.agent = agent
         self.task_reward_weight = task_reward_weight
         self.enc_reward_weight = enc_reward_weight
+
+    def set_enc_reward_f(self, enc_reward_f):
+        """ 
+        f: (enc_obs, latent) -> enc_reward
+        """
+        self.enc_reward_f = enc_reward_f
 
     def step(self, action):
         next_state, reward, done, info = super(IntrinsicRewardWrapper, self).step(action)
         next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])     
-        enc_reward = self.agent.calc_enc_rewards(next_enc_obs, next_latent)
+        enc_reward = self.enc_reward_f(next_enc_obs, next_latent)
         total_reward = reward * self.task_reward_weight + enc_reward * args.enc_reward_weight
         return next_state, total_reward, done, info
 
@@ -292,6 +297,7 @@ if __name__ == "__main__":
             video_length=100,  # for each video record up to 100 steps
         )
     envs = ExtractObsWrapper(envs)
+    envs = IntrinsicRewardWrapper(envs, args.task_reward_weight, args.enc_reward_weight)
     envs = RecordEpisodeStatisticsTorch(envs, device)
     envs.single_action_space = envs.action_space
     envs.single_observation_space = envs.observation_space
@@ -301,6 +307,7 @@ if __name__ == "__main__":
     enc_obs_dim = 4
     agent = DADSAgent(envs, args.hidden_dim, args.latent_dim, enc_obs_dim).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    envs.set_enc_reward_f(agent.calc_enc_rewards)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape, dtype=torch.float).to(device)
@@ -359,9 +366,7 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, next_task_reward, next_done, info = envs.step(action)
-            next_enc_reward = agent.calc_enc_rewards(next_enc_obs, next_latent)
-            rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
+            next_obs, rewards[step], next_done, info = envs.step(action)
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
             # Re-sample the latent for done envs
             done_idx = torch.nonzero(next_done, as_tuple=True)
