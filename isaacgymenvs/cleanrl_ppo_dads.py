@@ -332,6 +332,7 @@ if __name__ == "__main__":
             global_step += 1 * args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
+            latents[step] = next_latent
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
