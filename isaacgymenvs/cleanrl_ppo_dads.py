@@ -343,7 +343,6 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, next_task_reward, next_done, info = envs.step(action)
-            # TODO: Refactor
             next_enc_reward = agent.calc_enc_rewards(next_enc_obs, next_latent)
             rewards[step] = next_task_reward * args.task_reward_weight + next_enc_reward * args.enc_reward_weight
             next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])
@@ -367,7 +366,6 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
-            # TODO: Add next_latent as input to agent
             next_value = agent.get_value(next_obs, next_latent).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
@@ -436,8 +434,7 @@ if __name__ == "__main__":
 
                 # Encoder loss
                 # Since the encoder loss and policy loss are w.r.t to entirely different parameters, 
-                # we can optimize them jointly using the same optimizer without any problems
-                # TODO: Refactor 2 lines
+                # we can optimize them jointly using the same optimizer without any problem
                 mb_enc_preds = agent.get_enc_pred(b_enc_obs[mb_inds])
                 encoder_loss = agent.calc_enc_loss(mb_enc_preds, b_latent[mb_inds])
 
@@ -454,7 +451,6 @@ if __name__ == "__main__":
                     break
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        # TODO: Add encoder loss to logger
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/encoder_loss", encoder_loss.item(), global_step)
