@@ -118,6 +118,7 @@ def parse_args():
     parser.add_argument("--latent-dim", type=int, default=64)
     parser.add_argument("--enc-reward-weight", type=float, default=0.0)
     parser.add_argument("--task-reward-weight", type=float, default=1.0)
+    parser.add_argument("--enc-loss-weight", type=float, default=1.0)
 
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -441,7 +442,7 @@ if __name__ == "__main__":
                 encoder_loss = agent.calc_enc_loss(mb_enc_preds, b_latent[mb_inds])
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + encoder_loss * args.enc_loss_weight
 
                 optimizer.zero_grad()
                 loss.backward()
