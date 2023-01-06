@@ -221,6 +221,22 @@ class ExtractObsWrapper(gym.ObservationWrapper):
     def observation(self, obs):
         return obs["obs"]
 
+class IntrinsicRewardWrapper(gym.Wrapper):
+    """ Wrapper to add intrinsic reward to the task reward"""
+
+    def __init__(self, env, agent, task_reward_weight, enc_reward_weight):
+        super(IntrinsicRewardWrapper, self).__init__(env)
+        self.agent = agent
+        self.task_reward_weight = task_reward_weight
+        self.enc_reward_weight = enc_reward_weight
+
+    def step(self, action):
+        next_state, reward, done, info = super(IntrinsicRewardWrapper, self).step(action)
+        next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])     
+        enc_reward = self.agent.calc_enc_rewards(next_enc_obs, next_latent)
+        total_reward = reward * self.task_reward_weight + enc_reward * args.enc_reward_weight
+        return next_state, total_reward, done, info
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -354,7 +370,8 @@ if __name__ == "__main__":
             if 0 <= step <= 2:
                 for idx, d in enumerate(next_done):
                     if d:
-                        # TODO: May be worth to log task return and exploration return separately
+                        # TODO: Logging is currently based only on task reward
+                        # What is the best way to log episodic return of encoder reward here? 
                         episodic_return = info["r"][idx].item()
                         print(f"global_step={global_step}, episodic_return={episodic_return}")
                         writer.add_scalar("charts/episodic_return", episodic_return, global_step)
