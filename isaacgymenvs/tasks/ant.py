@@ -293,8 +293,8 @@ class Ant(VecTask):
         self.compute_reward(self.actions)
         self.prev_body_pos = self.curr_body_pos
         self.curr_body_pos = self.root_states[:,0:3]
-        self.extras['prev_body_pos'] = self.curr_body_pos
-        self.extras['curr_body_pos'] = self.prev_body_pos
+        self.extras['prev_body_pos'] = self.curr_body_pos[:, :2]
+        self.extras['curr_body_pos'] = self.prev_body_pos[:, :2]
 
         # debug viz
         if self.viewer and self.debug_viz:

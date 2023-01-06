@@ -282,7 +282,7 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     # TODO: Automatically check from env or make configurable from CLI instead of hardcoding
-    enc_obs_dim = 6
+    enc_obs_dim = 4
     agent = DADSAgent(envs, args.hidden_dim, args.latent_dim, enc_obs_dim).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
