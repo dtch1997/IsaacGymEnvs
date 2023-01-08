@@ -112,6 +112,8 @@ def parse_args():
         help="the scale factor applied to the reward during training")
     parser.add_argument("--record-video-step-frequency", type=int, default=1464,
         help="the frequency at which to record the videos")
+    parser.add_argument("--eval", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="If True, play agent without training")
 
     # DADS-specific arguments
     parser.add_argument("--hidden-dim", type=int, default=256)
@@ -386,6 +388,7 @@ if __name__ == "__main__":
                                 "charts/consecutive_successes", info["consecutive_successes"].item(), global_step
                             )
                         break
+        if args.eval: continue
 
         # bootstrap value if not done
         with torch.no_grad():
