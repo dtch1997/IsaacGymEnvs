@@ -296,7 +296,7 @@ if __name__ == "__main__":
             envs,
             f"videos/{run_name}",
             step_trigger=lambda step: step % args.record_video_step_frequency == 0,
-            video_length=100,  # for each video record up to 100 steps
+            video_length=1000,  # for each video record up to 100 steps
         )
     envs = ExtractObsWrapper(envs)
     envs = IntrinsicRewardWrapper(envs, args.task_reward_weight, args.enc_reward_weight)
