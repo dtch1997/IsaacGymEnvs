@@ -46,11 +46,13 @@ from .quadcopter import Quadcopter
 from .shadow_hand import ShadowHand
 from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
+from .omni_ant import OmniAnt
 
 # Mappings from strings to environments
 isaacgym_task_map = {
     "AllegroHand": AllegroHand,
     "Ant": Ant,
+    "OmniAnt": OmniAnt,
     "Anymal": Anymal,
     "AnymalTerrain": AnymalTerrain,
     "BallBalance": BallBalance,
