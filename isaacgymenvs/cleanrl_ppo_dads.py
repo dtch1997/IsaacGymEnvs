@@ -248,7 +248,7 @@ class IntrinsicRewardWrapper(gym.Wrapper):
 if __name__ == "__main__":
     args = parse_args()
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-    if args.track:
+    if args.track or args.eval:
         import wandb
 
         run = wandb.init(
@@ -335,12 +335,12 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs, dtype=torch.float).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
-    if args.track and wandb.run.resumed:
+    if (args.track or args.eval) and wandb.run.resumed:
         global_step = run.summary.get("global_step") + 1
         api = wandb.Api()
         run = api.run(f"{run.entity}/{run.project}/{run.id}")
         model = run.file("agent.pt")
-        model.download(f"models/{args.exp_name}/")
+        model.download(f"models/{args.exp_name}/", replace=True)
         agent.load_state_dict(torch.load(
             f"models/{args.exp_name}/agent.pt", map_location=device))
         agent.eval()
@@ -381,8 +381,9 @@ if __name__ == "__main__":
                         # What is the best way to log episodic return of encoder reward here? 
                         episodic_return = info["r"][idx].item()
                         print(f"global_step={global_step}, episodic_return={episodic_return}")
-                        writer.add_scalar("charts/episodic_return", episodic_return, global_step)
-                        writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
+                        if not args.eval: 
+                            writer.add_scalar("charts/episodic_return", episodic_return, global_step)
+                            writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
                         if "consecutive_successes" in info:  # ShadowHand and AllegroHand metric
                             writer.add_scalar(
                                 "charts/consecutive_successes", info["consecutive_successes"].item(), global_step
