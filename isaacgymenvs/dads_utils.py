@@ -51,6 +51,7 @@ class Encoder(nn.Module):
             layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
             layer_init(nn.Linear(hidden_dim, latent_dim), std=1.0),
+            nn.Tanh(),
         )
 
     def get_enc_pred(self, enc_obs):
