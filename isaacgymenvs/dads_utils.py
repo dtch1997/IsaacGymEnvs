@@ -15,7 +15,7 @@ def sample_latent(num_envs, latent_dim, device='cpu'):
         std = torch.ones(size=(num_envs, latent_dim), device=device)
     )
     # Project to unit hypersphere
-    z_normalized = z / torch.sum(z, dim=-1, keepdim=True)
+    z_normalized = z / torch.linalg.norm(z, dim=-1, keepdim=True)
     # The resulting distribution is uniform over the unit hypersphere
     return z_normalized
 
