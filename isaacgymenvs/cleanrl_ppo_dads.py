@@ -139,22 +139,36 @@ class RecordEpisodeStatisticsTorch(gym.Wrapper):
 
     def reset(self, **kwargs):
         observations = super().reset(**kwargs)
-        self.episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.total_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.task_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.intrinsic_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
         self.episode_lengths = torch.zeros(self.num_envs, dtype=torch.int32, device=self.device)
-        self.returned_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.returned_total_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.returned_task_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
+        self.returned_intrinsic_episode_returns = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
         self.returned_episode_lengths = torch.zeros(self.num_envs, dtype=torch.int32, device=self.device)
         return observations
 
     def step(self, action):
         observations, rewards, dones, infos = super().step(action)
-        self.episode_returns += rewards
+        self.total_episode_returns += rewards
+        self.task_episode_returns += infos['task_reward']
+        self.intrinsic_episode_returns += infos['intrinsic_reward']
         self.episode_lengths += 1
-        self.returned_episode_returns[:] = self.episode_returns
+        
+        self.returned_total_episode_returns[:] = self.total_episode_returns
+        self.returned_task_episode_returns[:] = self.task_episode_returns
+        self.returned_intrinsic_episode_returns[:] = self.intrinsic_episode_returns
         self.returned_episode_lengths[:] = self.episode_lengths
-        self.episode_returns *= 1 - dones
+        
+        self.total_episode_returns *= 1 - dones
+        self.task_episode_returns *= 1 - dones
+        self.intrinsic_episode_returns *= 1 - dones
         self.episode_lengths *= 1 - dones
-        infos["r"] = self.returned_episode_returns
+        infos["r"] = self.returned_total_episode_returns
         infos["l"] = self.returned_episode_lengths
+        infos["task_return"] = self.returned_task_episode_returns
+        infos["intrinsic_return"] = self.returned_intrinsic_episode_returns 
         return (
             observations,
             rewards,
@@ -242,6 +256,8 @@ class IntrinsicRewardWrapper(gym.Wrapper):
         next_enc_obs = dads_utils.build_enc_obs(info['prev_body_pos'], info['curr_body_pos'])     
         enc_reward = self.enc_reward_f(next_enc_obs, next_latent)
         total_reward = reward * self.task_reward_weight + enc_reward * args.enc_reward_weight
+        info['task_reward'] = reward
+        info['intrinsic_reward'] = enc_reward
         return next_state, total_reward, done, info
 
 
@@ -384,6 +400,8 @@ if __name__ == "__main__":
                         if not args.eval: 
                             writer.add_scalar("charts/episodic_return", episodic_return, global_step)
                             writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
+                            writer.add_scalar("charts/task_return", info['task_return'][idx].item(), global_step)
+                            writer.add_scalar("charts/intrinsic_return", info['intrinsic_return'][idx].item(), global_step)
                         if "consecutive_successes" in info:  # ShadowHand and AllegroHand metric
                             writer.add_scalar(
                                 "charts/consecutive_successes", info["consecutive_successes"].item(), global_step
