@@ -173,7 +173,9 @@ class DiffusionAgent(nn.Module):
             device: torch device
         """
         super().__init__()
-        self.net = TemporalUnet(128, 16, None)
+        self.action_dim, self.observation_dim = get_action_dim(envs), get_observation_dim(envs)
+        self.transition_dim = self.observation_dim + self.action_dim
+        self.net = TemporalUnet(planning_horizon, self.transition_dim, None, dim_mults=(1,))
 
         # One beta values for each time step, they linearly scale from 0.0001 to 0.2
         self.betas = torch.linspace(0.0001, 0.02, denoising_steps).to(device)
@@ -186,8 +188,7 @@ class DiffusionAgent(nn.Module):
 
         self.planning_horizon = planning_horizon # h
         self.denoising_steps = denoising_steps # t
-        self.action_dim, self.observation_dim = get_action_dim(envs), get_observation_dim(envs)
-        self.transition_dim = self.observation_dim + self.action_dim
+
 
     def sample(self, x):
         """ 
@@ -210,11 +211,12 @@ class DiffusionAgent(nn.Module):
         alpha = self.alphas[t]
         alpha_cum = self.alphas_cum[t]
 
+        cond = None
         t_vec = torch.ones(x.shape[0], device=device) * t
-        x = (1 / torch.sqrt(alpha)) * (x - ((1-alpha)/torch.sqrt(1-alpha_cum)) * model(x, t_vec)) + sigma_t * noise
+        x = (1 / torch.sqrt(alpha)) * (x - ((1-alpha)/torch.sqrt(1-alpha_cum)) * self.net(x, cond, t_vec)) + sigma_t * noise
         return x
 
-class Policy:
+class Plan:
     """
     A policy refers to a finite-horizon (state, action) trajectory 
     """
@@ -312,17 +314,16 @@ if __name__ == "__main__":
         print(f"resumed at step {global_step}")
 
     # TODO: ALGO Logic: Storage setup
-    policy = Policy(envs, args.num_envs, args.horizon, device)
+    plan = Plan(envs, args.num_envs, args.horizon, device)
 
     for update in range(1, num_updates + 1):
         # Rolling out the policy
         for step in range(0, args.num_steps):
             global_step += 1 * args.num_envs
 
-            # TODO: Implement diffusion model action
-            # 1. Sample plan from diffusion model
-            # 2. Execute first action of plan
-            action = policy.get_next_action()
+            noise = torch.randn_like(plan.policy)
+            plan.policy = agent.sample(noise)
+            action = plan.get_next_action()
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action)
@@ -341,7 +342,6 @@ if __name__ == "__main__":
                         break
 
         # Optimizing the diffusion model
-        clipfracs = []
         for epoch in range(args.update_epochs):
             b_inds = torch.randperm(args.batch_size).to(device)
             for start in range(0, args.batch_size, args.minibatch_size):
