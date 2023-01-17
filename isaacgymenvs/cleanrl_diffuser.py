@@ -153,7 +153,7 @@ class RecordEpisodeStatisticsTorch(gym.Wrapper):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
-        pass
+        self.net = TemporalUnet(128, 16, None)
 
 
 class ExtractObsWrapper(gym.ObservationWrapper):
@@ -251,7 +251,7 @@ if __name__ == "__main__":
             # TODO: Implement diffusion model action
             # 1. Sample plan from diffusion model
             # 2. Execute first action of plan
-            action = envs.action_space.sample() # placeholder
+            action = torch.zeros((args.num_envs,) + envs.single_action_space.shape).to(device) # placeholder
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action)
