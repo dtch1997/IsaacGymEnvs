@@ -110,6 +110,11 @@ def parse_args():
         help="the scale factor applied to the reward during training")
     parser.add_argument("--record-video-step-frequency", type=int, default=1464,
         help="the frequency at which to record the videos")
+
+    # Diffuser-specific args
+    parser.add_argument("--horizon", type=int, default=128, 
+        help="Number of timesteps in planning horizon")
+
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
@@ -150,11 +155,30 @@ class RecordEpisodeStatisticsTorch(gym.Wrapper):
             infos,
         )
 
+def get_action_dim(envs):
+    action_dim = np.array(envs.action_space).prod()
+    return action_dim
+
+def get_observation_dim(envs):
+    observation_dim = np.array(envs.observation_space).prod()
+    return observation_dim
+
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
         self.net = TemporalUnet(128, 16, None)
 
+class Policy:
+    """
+    A policy refers to a finite-horizon (state, action) trajectory 
+    """
+    def __init__(self, envs, num_envs, horizon, device):
+        self.action_dim, self.observation_dim = get_action_dim(envs), get_observation_dim(envs)
+        self.transition_dim = self.observation_dim + self.action_dim
+        self.policy = torch.zeros(num_envs, horizon, self.transition_dim).to(device)
+
+    def get_next_action(self):
+        return self.policy[:, 0, -self.action_dim:]
 
 class ExtractObsWrapper(gym.ObservationWrapper):
     def observation(self, obs):
@@ -242,6 +266,7 @@ if __name__ == "__main__":
         print(f"resumed at step {global_step}")
 
     # TODO: ALGO Logic: Storage setup
+    policy = Policy(envs, args.num_envs, args.horizon, device)
 
     for update in range(1, num_updates + 1):
         # Rolling out the policy
