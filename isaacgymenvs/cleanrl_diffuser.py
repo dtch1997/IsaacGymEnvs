@@ -157,6 +157,17 @@ class RecordEpisodeStatisticsTorch(gym.Wrapper):
             infos,
         )
 
+def build_transition(action, state):
+    """ 
+    Input:
+        action: torch.Tensor of shape [b, a]
+        state: torch.Tensor of shape [b, s]
+    """
+    return torch.cat([state, action], dim=-1)
+
+def get_transition_dim(envs):
+    return get_action_dim(envs) + get_observation_dim(envs)
+
 def get_action_dim(envs) -> int:
     action_dim = np.array(envs.action_space.shape).prod()
     return action_dim
@@ -314,7 +325,9 @@ if __name__ == "__main__":
         print(f"resumed at step {global_step}")
 
     # TODO: ALGO Logic: Storage setup
+    transition_dim = get_transition_dim(envs)
     plan = Plan(envs, args.num_envs, args.horizon, device)
+    transitions = torch.zeros((args.num_envs, args.horizon, transition_dim))
 
     for update in range(1, num_updates + 1):
         # Rolling out the policy
@@ -324,6 +337,7 @@ if __name__ == "__main__":
             noise = torch.randn_like(plan.policy)
             plan.policy = agent.sample(noise)
             action = plan.get_next_action()
+            transitions[step] = build_transition(action, next_obs)
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action)
