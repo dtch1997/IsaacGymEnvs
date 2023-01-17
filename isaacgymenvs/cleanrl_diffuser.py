@@ -114,6 +114,8 @@ def parse_args():
     # Diffuser-specific args
     parser.add_argument("--horizon", type=int, default=128, 
         help="Number of timesteps in planning horizon")
+    parser.add_argument("--denoising-steps", type=int, default=128,
+        help="Number of denoising steps to use")
 
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -155,18 +157,62 @@ class RecordEpisodeStatisticsTorch(gym.Wrapper):
             infos,
         )
 
-def get_action_dim(envs):
-    action_dim = np.array(envs.action_space).prod()
+def get_action_dim(envs) -> int:
+    action_dim = np.array(envs.action_space.shape).prod()
     return action_dim
 
-def get_observation_dim(envs):
-    observation_dim = np.array(envs.observation_space).prod()
+def get_observation_dim(envs) -> int:
+    observation_dim = np.array(envs.observation_space.shape).prod()
     return observation_dim
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+class DiffusionAgent(nn.Module):
+    def __init__(self, envs, planning_horizon, denoising_steps, device):
+        """
+            envs: vectorized gym envs
+            T: number of diffusion steps to take
+            device: torch device
+        """
         super().__init__()
         self.net = TemporalUnet(128, 16, None)
+
+        # One beta values for each time step, they linearly scale from 0.0001 to 0.2
+        self.betas = torch.linspace(0.0001, 0.02, denoising_steps).to(device)
+
+        # Calculate alpha values, then cumulative alpha values, then the square roots of the alpha
+        self.alphas = 1 - self.betas
+        self.alphas_cum = torch.cumprod(self.alphas, 0)
+        self.sqrt_alpha = torch.sqrt(self.alphas_cum)
+        self.sqrt_1_minus_alpha = torch.sqrt(1 - self.alphas_cum)
+
+        self.planning_horizon = planning_horizon # h
+        self.denoising_steps = denoising_steps # t
+        self.action_dim, self.observation_dim = get_action_dim(envs), get_observation_dim(envs)
+        self.transition_dim = self.observation_dim + self.action_dim
+
+    def sample(self, x):
+        """ 
+        Input:
+            x: torch.Tensor of shape [b, h, t]
+                b = batch size
+                h = planning horizon
+                t = transition dim
+        """
+        for t in range(self.denoising_steps-1, 0, -1):
+            x = self.reverse_diffusion_step(x, t)
+        return x
+
+    def reverse_diffusion_step(self, x, t):
+        if t > 1:
+            noise = torch.randn_like(x)
+        else:
+            noise = torch.zeros_like(x)
+        sigma_t = self.betas[t]
+        alpha = self.alphas[t]
+        alpha_cum = self.alphas_cum[t]
+
+        t_vec = torch.ones(x.shape[0], device=device) * t
+        x = (1 / torch.sqrt(alpha)) * (x - ((1-alpha)/torch.sqrt(1-alpha_cum)) * model(x, t_vec)) + sigma_t * noise
+        return x
 
 class Policy:
     """
@@ -244,7 +290,7 @@ if __name__ == "__main__":
     envs.single_observation_space = envs.observation_space
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = DiffusionAgent(envs, args.horizon, args.denoising_steps, device).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # TRY NOT TO MODIFY: start the game
@@ -276,7 +322,7 @@ if __name__ == "__main__":
             # TODO: Implement diffusion model action
             # 1. Sample plan from diffusion model
             # 2. Execute first action of plan
-            action = torch.zeros((args.num_envs,) + envs.single_action_space.shape).to(device) # placeholder
+            action = policy.get_next_action()
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action)
@@ -294,7 +340,7 @@ if __name__ == "__main__":
                             )
                         break
 
-        # Optimizing the policy and value network
+        # Optimizing the diffusion model
         clipfracs = []
         for epoch in range(args.update_epochs):
             b_inds = torch.randperm(args.batch_size).to(device)
