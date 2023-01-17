@@ -7,57 +7,6 @@ import torch.nn.functional as f
 
 import einops
 from einops.layers.torch import Rearrange
-
-def mish(input: Tensor, inplace: bool = False) -> Tensor:
-    r"""Applies the Mish function, element-wise.
-    Mish: A Self Regularized Non-Monotonic Neural Activation Function.
-
-    .. math::
-        \text{Mish}(x) = x * \text{Tanh}(\text{Softplus}(x))
-
-    .. note::
-        See `Mish: A Self Regularized Non-Monotonic Neural Activation Function <https://arxiv.org/abs/1908.08681>`_
-
-    See :class:`~torch.nn.Mish` for more details.
-    """
-    return input * torch.tanh(f.softplus(input))
-
-# Manually define the Mish module because it is not included in torch 1.8.1
-class Mish(nn.Module):
-    r"""Applies the Mish function, element-wise.
-    Mish: A Self Regularized Non-Monotonic Neural Activation Function.
-
-    .. math::
-        \text{Mish}(x) = x * \text{Tanh}(\text{Softplus}(x))
-
-    .. note::
-        See `Mish: A Self Regularized Non-Monotonic Neural Activation Function <https://arxiv.org/abs/1908.08681>`_
-
-    Shape:
-        - Input: :math:`(*)`, where :math:`*` means any number of dimensions.
-        - Output: :math:`(*)`, same shape as the input.
-
-    .. image:: ../scripts/activation_images/Mish.png
-
-    Examples::
-
-        >>> m = Mish()
-        >>> input = torch.randn(2)
-        >>> output = m(input)
-    """
-    __constants__ = ['inplace']
-    inplace: bool
-
-    def __init__(self, inplace: bool = False):
-        super(Mish, self).__init__()
-        self.inplace = inplace
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return mish(input, inplace=self.inplace)
-
-    def extra_repr(self) -> str:
-        inplace_str = 'inplace=True' if self.inplace else ''
-        return inplace_str
     
 
 class Downsample1d(nn.Module):
@@ -154,7 +103,7 @@ class Conv1dBlock(nn.Module):
             Rearrange('batch channels horizon -> batch channels 1 horizon'),
             nn.GroupNorm(n_groups, out_channels),
             Rearrange('batch channels 1 horizon -> batch channels horizon'),
-            Mish(),
+            nn.SiLU(),
         )
 
     def forward(self, x):
@@ -171,7 +120,7 @@ class ResidualTemporalBlock(nn.Module):
         ])
 
         self.time_mlp = nn.Sequential(
-            Mish(),
+            nn.SiLU(),
             nn.Linear(embed_dim, out_channels),
             Rearrange('batch t -> batch t 1'),
         )
@@ -217,7 +166,7 @@ class TemporalUnet(nn.Module):
         self.time_mlp = nn.Sequential(
             SinusoidalPosEmb(dim),
             nn.Linear(dim, dim * 4),
-            Mish(),
+            nn.SiLU(),
             nn.Linear(dim * 4, dim),
         )
 
