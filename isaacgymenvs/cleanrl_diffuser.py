@@ -355,6 +355,9 @@ if __name__ == "__main__":
                             )
                         break
 
+        # Flatten the batch
+        b_transitions = transitions.view((-1, transition_dim))
+
         # Optimizing the diffusion model
         for epoch in range(args.update_epochs):
             b_inds = torch.randperm(args.batch_size).to(device)
