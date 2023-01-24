@@ -76,7 +76,20 @@ class MotionLib(object):
         root_ang_vel = np.empty([n, 3])
         dof_pos = np.empty([n, self._num_dof])
         dof_vel = np.empty([n, self._num_dof])
-        # TODO: Implement
+
+        # TODO: Implement vectorized version
+        for i, (motion_id, motion_time) in enumerate(zip(motion_ids, motion_times)):
+            motion = self.get_motion(motion_id)
+            frame_t = motion.calc_frame(motion_time)
+            frame_vel_t = motion.calc_frame_vel(motion_time)
+            
+            root_pos[i, :] = frame_t[:3]
+            root_rot[i, :] = frame_t[3:7]
+            dof_pos[i, :] = frame_t[7:]
+
+            root_vel[i, :] = frame_vel_t[:3]
+            root_ang_vel[i, :] = frame_vel_t[3:7]
+            dof_vel[i, :] = frame_vel_t[7:]
 
         return root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel
 
