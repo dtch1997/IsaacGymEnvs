@@ -89,6 +89,7 @@ class QuadrupedAMP(Quadruped):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
+        self.extras["terminate"] = self._terminate_buf
 
         return
 
@@ -155,6 +156,11 @@ class QuadrupedAMP(Quadruped):
             self._reset_hybrid_state_init(env_ids)
         else:
             assert(False), "Unsupported state initialization strategy: {:s}".format(str(self._state_init))
+        
+        self.progress_buf[env_ids] = 0
+        self.reset_buf[env_ids] = 0
+        self._terminate_buf[env_ids] = 0
+        
         return
     
     def _reset_default(self, env_ids):
@@ -268,12 +274,10 @@ class QuadrupedAMP(Quadruped):
                 self._amp_obs_buf[env_ids, i + 1] = self._amp_obs_buf[env_ids, i]
         return
 
-    def _compute_reset(self):
-        self.reset_buf[:], self._terminate_buf[:] = compute_humanoid_reset(self.reset_buf, self.progress_buf,
-                                                   self._contact_forces, self._contact_body_ids,
-                                                   self._rigid_body_pos, self.max_episode_length,
-                                                   self._enable_early_termination, self._termination_height)
-        return
+    def compute_reward(self, actions):
+        super().compute_reward(actions)
+        # Placeholder implementation, equivalent to disabling early termination
+        self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)        
     
     def _compute_amp_observations(self, env_ids=None):
         if (env_ids is None):
