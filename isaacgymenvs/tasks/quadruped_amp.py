@@ -78,6 +78,8 @@ class QuadrupedAMP(Quadruped):
         self._curr_amp_obs_buf = self._amp_obs_buf[:, 0]
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
         self._amp_obs_demo_buf = None
+        
+        self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)        
 
     def post_physics_step(self):
         super().post_physics_step()
@@ -117,10 +119,10 @@ class QuadrupedAMP(Quadruped):
 
         motion_ids = motion_ids.flatten()
         motion_times = motion_times.flatten()
-        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
+        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
-        amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
+        amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel,
                                       self._local_root_obs)
         self._amp_obs_demo_buf[:] = amp_obs_demo.view(self._amp_obs_demo_buf.shape)
 
@@ -136,7 +138,7 @@ class QuadrupedAMP(Quadruped):
     
     def _load_motion(self, motion_file):
         """ Loads a motion library to do AMP training"""
-        self._motion_data = MotionLib(motion_file, self.device)
+        self._motion_lib = MotionLib(motion_file, self.device)
 
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
@@ -181,7 +183,7 @@ class QuadrupedAMP(Quadruped):
         else:
             assert(False), "Unsupported state initialization strategy: {:s}".format(str(self._state_init))
 
-        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
+        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
 
         self._set_env_state(env_ids=env_ids, 
@@ -264,6 +266,13 @@ class QuadrupedAMP(Quadruped):
         else:
             for i in reversed(range(self._amp_obs_buf.shape[1] - 1)):
                 self._amp_obs_buf[env_ids, i + 1] = self._amp_obs_buf[env_ids, i]
+        return
+
+    def _compute_reset(self):
+        self.reset_buf[:], self._terminate_buf[:] = compute_humanoid_reset(self.reset_buf, self.progress_buf,
+                                                   self._contact_forces, self._contact_body_ids,
+                                                   self._rigid_body_pos, self.max_episode_length,
+                                                   self._enable_early_termination, self._termination_height)
         return
     
     def _compute_amp_observations(self, env_ids=None):

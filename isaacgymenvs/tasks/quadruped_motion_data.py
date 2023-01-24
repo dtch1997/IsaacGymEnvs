@@ -27,6 +27,7 @@ from motion_imitation.utilities import pose3d
 from motion_imitation.utilities import motion_util
 from pybullet_utils import transformations
 
+from isaacgym.torch_utils import to_torch
 
 class LoopMode(enum.Enum):
   """Specifies if a motion should loop or stop at the last frame."""
@@ -50,12 +51,14 @@ class MotionLib(object):
         return self._motions[motion_id]
 
     def sample_motions(self, n):
-        motion_ids = torch.multinomial(self._motion_weights, num_samples=n, replacement=True)
+        m = self.num_motions()
+        motion_ids = np.random.choice(m, size=n, replace=True, p=self._motion_weights)
+
         return motion_ids
 
     def sample_time(self, motion_ids, truncate_time=None):
         n = len(motion_ids)
-        phase = torch.rand(motion_ids.shape, device=self._device)
+        phase = np.random.uniform(low=0.0, high=1.0, size=motion_ids.shape)
         
         motion_len = self._motion_lengths[motion_ids]
         if (truncate_time is not None):
@@ -63,6 +66,7 @@ class MotionLib(object):
             motion_len -= truncate_time
 
         motion_time = phase * motion_len
+
         return motion_time
 
     def get_motion_length(self, motion_ids):
@@ -91,6 +95,13 @@ class MotionLib(object):
             root_vel[i, :] = frame_vel_t[:3]
             root_ang_vel[i, :] = frame_vel_t[3:6]
             dof_vel[i, :] = frame_vel_t[6:]
+
+        root_pos = to_torch(root_pos, device=self._device)
+        root_rot = to_torch(root_rot, device=self._device)
+        dof_pos = to_torch(dof_pos, device=self._device)
+        root_vel = to_torch(root_vel, device=self._device)
+        root_ang_vel = to_torch(root_ang_vel, device=self._device)
+        dof_vel = to_torch(dof_vel, device=self._device)
 
         return root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel
 
