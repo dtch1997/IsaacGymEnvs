@@ -64,15 +64,16 @@ class QuadrupedAMP(Quadruped):
 
         self._reset_default_env_ids = []
         self._reset_ref_env_ids = []
+        self._local_root_obs = cfg["env"]["localRootObs"]
 
-        super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
-        
-        # Load motion file motion file
-        self._motion_file = self.cfg['env']['motionFile']
+        super().__init__(cfg=cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
+
+        # Load motion file
+        self._motion_file = cfg['env']['motionFile']
         self._load_motion(self._motion_file)
 
         # Initialize _amp_obs_buf, _curr_amp_obs_buf, _hist_amp_obs_buf, _amp_obs_demo_buf (?)
-        self._amp_obs_space = spaces.Box(np.ones(self.num_amp_obs) * -np.Inf, np.ones(self.num_amp_obs) * np.Inf)
+        self._amp_obs_space = spaces.Box(np.ones(self.get_num_amp_obs()) * -np.Inf, np.ones(self.get_num_amp_obs()) * np.Inf)
         self._amp_obs_buf = torch.zeros((self.num_envs, self._num_amp_obs_steps, self._num_amp_obs_per_step), device=self.device, dtype=torch.float)
         self._curr_amp_obs_buf = self._amp_obs_buf[:, 0]
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
@@ -266,13 +267,12 @@ class QuadrupedAMP(Quadruped):
         return
     
     def _compute_amp_observations(self, env_ids=None):
-        key_body_pos = self._rigid_body_pos[:, self._key_body_ids, :]
         if (env_ids is None):
-            self._curr_amp_obs_buf[:] = build_amp_observations(self._root_states, self._dof_pos, self._dof_vel, key_body_pos,
+            self._curr_amp_obs_buf[:] = build_amp_observations(self.root_states, self.dof_pos, self.dof_vel,
                                                                 self._local_root_obs)
         else:
-            self._curr_amp_obs_buf[env_ids] = build_amp_observations(self._root_states[env_ids], self._dof_pos[env_ids], 
-                                                                    self._dof_vel[env_ids], key_body_pos[env_ids],
+            self._curr_amp_obs_buf[env_ids] = build_amp_observations(self.root_states[env_ids], self.dof_pos[env_ids], 
+                                                                    self.dof_vel[env_ids],
                                                                     self._local_root_obs)
         return
 
@@ -281,8 +281,41 @@ class QuadrupedAMP(Quadruped):
 #####################################################################
 
 @torch.jit.script
-def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+def dof_to_obs(pose):
+    # type: (Tensor) -> Tensor
+    dof_obs_size = 12 # 12 revolute joints
+    dof_offsets = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    num_joints = len(dof_offsets) - 1
+
+    dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)
+    dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
+    dof_obs_offset = 0
+
+    for j in range(num_joints):
+        dof_offset = dof_offsets[j]
+        dof_size = dof_offsets[j + 1] - dof_offsets[j]
+        joint_pose = pose[:, dof_offset:(dof_offset + dof_size)]
+
+        # assume this is a spherical joint
+        if (dof_size == 3):
+            raise RuntimeError("Unexpected spherical joint in Quadruped dofs")
+            joint_pose_q = exp_map_to_quat(joint_pose)
+            joint_dof_obs = quat_to_tan_norm(joint_pose_q)
+            dof_obs_size = 6
+        elif (dof_size == 1):
+            joint_dof_obs = joint_pose
+            dof_obs_size = 1
+        else: 
+            raise RuntimeError("Unexpected joint type encountered")
+
+        dof_obs[:, dof_obs_offset:(dof_obs_offset + dof_obs_size)] = joint_dof_obs
+        dof_obs_offset += dof_obs_size
+
+    return dof_obs
+
+@torch.jit.script
+def build_amp_observations(root_states, dof_pos, dof_vel, local_root_obs):
+    # type: (Tensor, Tensor, Tensor, bool) -> Tensor
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
     root_vel = root_states[:, 7:10]
@@ -300,18 +333,7 @@ def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_ro
     local_root_vel = my_quat_rotate(heading_rot, root_vel)
     local_root_ang_vel = my_quat_rotate(heading_rot, root_ang_vel)
 
-    root_pos_expand = root_pos.unsqueeze(-2)
-    local_key_body_pos = key_body_pos - root_pos_expand
-    
-    heading_rot_expand = heading_rot.unsqueeze(-2)
-    heading_rot_expand = heading_rot_expand.repeat((1, local_key_body_pos.shape[1], 1))
-    flat_end_pos = local_key_body_pos.view(local_key_body_pos.shape[0] * local_key_body_pos.shape[1], local_key_body_pos.shape[2])
-    flat_heading_rot = heading_rot_expand.view(heading_rot_expand.shape[0] * heading_rot_expand.shape[1], 
-                                               heading_rot_expand.shape[2])
-    local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
-    flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
-    
     dof_obs = dof_to_obs(dof_pos)
 
-    obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
+    obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel), dim=-1)
     return obs

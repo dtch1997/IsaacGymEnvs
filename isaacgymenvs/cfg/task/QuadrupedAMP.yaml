@@ -9,6 +9,7 @@ env:
   hybridInitProb: 0.0
   numAMPObsSteps: 2
   stateInit: "Default"
+  localRootObs: False
   # End AMP-specific things
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
