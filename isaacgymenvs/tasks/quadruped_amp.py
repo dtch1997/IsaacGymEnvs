@@ -39,6 +39,9 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.tasks.quadruped import Quadruped
 from isaacgymenvs.tasks.quadruped_motion_data import MotionLib
 
+from isaacgym.torch_utils import *
+from isaacgymenvs.utils.torch_jit_utils import *
+
 from typing import Tuple, Dict
 
 
@@ -155,8 +158,9 @@ class QuadrupedAMP(Quadruped):
         """ Default initialization of robot. 
         
         Robot is initialized from default initial state. """
+        # TODO: Replace 
         self._humanoid_root_states[env_ids] = self._initial_humanoid_root_states[env_ids]
-        self._dof_pos[env_ids] = self._initial_dof_pos[env_ids]
+        self._dof_pos[env_ids] = self.default_dof_pos[env_ids]
         self._dof_vel[env_ids] = self._initial_dof_vel[env_ids]
         self._reset_default_env_ids = env_ids
         return
@@ -278,6 +282,36 @@ class QuadrupedAMP(Quadruped):
 
 @torch.jit.script
 def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    raise NotImplementedError()
-    obs = None
+    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+    root_pos = root_states[:, 0:3]
+    root_rot = root_states[:, 3:7]
+    root_vel = root_states[:, 7:10]
+    root_ang_vel = root_states[:, 10:13]
+
+    root_h = root_pos[:, 2:3]
+    heading_rot = calc_heading_quat_inv(root_rot)
+
+    if (local_root_obs):
+        root_rot_obs = quat_mul(heading_rot, root_rot)
+    else:
+        root_rot_obs = root_rot
+    root_rot_obs = quat_to_tan_norm(root_rot_obs)
+
+    local_root_vel = my_quat_rotate(heading_rot, root_vel)
+    local_root_ang_vel = my_quat_rotate(heading_rot, root_ang_vel)
+
+    root_pos_expand = root_pos.unsqueeze(-2)
+    local_key_body_pos = key_body_pos - root_pos_expand
+    
+    heading_rot_expand = heading_rot.unsqueeze(-2)
+    heading_rot_expand = heading_rot_expand.repeat((1, local_key_body_pos.shape[1], 1))
+    flat_end_pos = local_key_body_pos.view(local_key_body_pos.shape[0] * local_key_body_pos.shape[1], local_key_body_pos.shape[2])
+    flat_heading_rot = heading_rot_expand.view(heading_rot_expand.shape[0] * heading_rot_expand.shape[1], 
+                                               heading_rot_expand.shape[2])
+    local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
+    flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
+    
+    dof_obs = dof_to_obs(dof_pos)
+
+    obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     return obs
