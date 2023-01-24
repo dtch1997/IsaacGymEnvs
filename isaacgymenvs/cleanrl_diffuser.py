@@ -39,6 +39,7 @@ import isaacgymenvs
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as f
 import torch.optim as optim
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
@@ -365,6 +366,25 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
                 # TODO: Optimize diffusion model based on MSE loss
+
+                mb_transitions = b_transitions[mb_inds]
+                mb_ts = torch.randint(1, args.denoising_steps, (args.minibatch_size,)).to(device)
+                mb_noise = torch.randn_like(mb_transitions)
+                
+                # Blend noise and transitions
+                mb_transitions_noised = (
+                    agent.sqrt_alpha[mb_ts, None] * mb_transitions
+                    + agent.sqrt_1_minus_alpha[mb_ts, None] * mb_noise
+                )
+
+                # forward pass
+                mb_transitions_denoised = agent.net(mb_transitions_noised, mb_ts)
+                loss = f.mse_loss(mb_transitions_denoised, mb_transitions)
+
+                # optimization loop
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
 
         # TODO: Log various losses and metrics
         print("SPS:", int(global_step / (time.time() - start_time)))
