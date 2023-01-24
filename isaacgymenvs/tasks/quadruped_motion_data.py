@@ -39,62 +39,6 @@ class MotionLib(object):
         self._device = device
         self._load_motions(motion_file)
 
-    def _fetch_motion_files(self, motion_file):
-        ext = os.path.splitext(motion_file)[1]
-        if (ext == ".yaml"):
-            dir_name = os.path.dirname(motion_file)
-            motion_files = []
-            motion_weights = []
-
-            with open(os.path.join(os.getcwd(), motion_file), 'r') as f:
-                motion_config = yaml.load(f, Loader=yaml.SafeLoader)
-
-            motion_list = motion_config['motions']
-            for motion_entry in motion_list:
-                curr_file = motion_entry['file']
-                curr_weight = motion_entry['weight']
-                assert(curr_weight >= 0)
-
-                curr_file = os.path.join(dir_name, curr_file)
-                motion_weights.append(curr_weight)
-                motion_files.append(curr_file)
-        else:
-            motion_files = [motion_file]
-            motion_weights = [1.0]
-
-        return motion_files, motion_weights
-
-    def _load_motions(self, motion_file):
-        self._motions = []
-        self._motion_weights = []
-        self._motion_files = []
-        self._motion_lengths = []
-
-        total_len = 0.0
-
-        motion_files, motion_weights = self._fetch_motion_files(motion_file)
-        num_motion_files = len(motion_files)
-        for f in range(num_motion_files):
-            curr_file = motion_files[f]
-            print("Loading {:d}/{:d} motion files: {:s}".format(f + 1, num_motion_files, curr_file))
-            curr_motion = MotionData(curr_file)
-
-            self._motions.append(curr_motion)
-            # TODO: Calculate motion length
-
-            curr_weight = motion_weights[f]
-            self._motion_weights.append(curr_weight)
-            self._motion_files.append(curr_file)
-
-        self._motion_lengths = torch.tensor(self._motion_lengths, device=self._device, dtype=torch.float32)
-        self._motion_weights = torch.tensor(self._motion_weights, dtype=torch.float32, device=self._device)
-        self._motion_weights /= self._motion_weights.sum()
-
-        num_motions = self.num_motions()
-        total_len = self.get_total_length()
-
-        print("Loaded {:d} motions with a total length of {:.3f}s.".format(num_motions, total_len))
-  
     def num_motions(self):
         return len(self._motions)
 
@@ -106,10 +50,6 @@ class MotionLib(object):
 
     def sample_motions(self, n):
         motion_ids = torch.multinomial(self._motion_weights, num_samples=n, replacement=True)
-
-        # m = self.num_motions()
-        # motion_ids = np.random.choice(m, size=n, replace=True, p=self._motion_weights)
-        # motion_ids = torch.tensor(motion_ids, device=self._device, dtype=torch.long)
         return motion_ids
 
     def sample_time(self, motion_ids, truncate_time=None):
@@ -128,7 +68,97 @@ class MotionLib(object):
         return self._motion_lengths[motion_ids]
 
     def get_motion_state(self, motion_ids, motion_times):
-        raise NotImplementedError()
+        """ Interpolate the motion-capture data to get motion state at arbitrary time """
+        n = len(motion_ids)
+        root_pos = np.empty([n, 3])
+        root_rot = np.empty([n, 4])
+        root_vel = np.empty([n, 3])
+        root_ang_vel = np.empty([n, 3])
+        dof_pos = np.empty([n, self._num_dof])
+        dof_vel = np.empty([n, self._num_dof])
+        # TODO: Implement
+
+        return root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel
+
+    def _load_motions(self, motion_file):
+        self._motions = []
+        self._motion_lengths = []
+        self._motion_weights = []
+        self._motion_fps = []
+        self._motion_dt = []
+        self._motion_num_frames = []
+        self._motion_files = []
+
+        total_len = 0.0
+
+        motion_files, motion_weights = self._fetch_motion_files(motion_file)
+        num_motion_files = len(motion_files)
+        for f in range(num_motion_files):
+            curr_file = motion_files[f]
+            print("Loading {:d}/{:d} motion files: {:s}".format(f + 1, num_motion_files, curr_file))
+            curr_motion = MotionData(curr_file)
+            motion_fps = curr_motion.get_fps()
+            curr_dt = curr_motion.get_frame_duration()
+
+            num_frames = curr_motion.get_num_frames()
+            curr_len = curr_motion.get_duration()
+
+            self._motion_fps.append(motion_fps)
+            self._motion_dt.append(curr_dt)
+            self._motion_num_frames.append(num_frames)
+ 
+            # TODO: Figure out what this is doing and replicate
+            # curr_dof_vels = self._compute_motion_dof_vels(curr_motion)
+            # curr_motion.dof_vels = curr_dof_vels
+
+            self._motions.append(curr_motion)
+            self._motion_lengths.append(curr_len)
+            
+            curr_weight = motion_weights[f]
+            self._motion_weights.append(curr_weight)
+            self._motion_files.append(curr_file)
+
+
+        self._motion_lengths = np.array(self._motion_lengths)
+        self._motion_weights = np.array(self._motion_weights)
+        self._motion_weights /= np.sum(self._motion_weights)
+
+        self._motion_fps = np.array(self._motion_fps)
+        self._motion_dt = np.array(self._motion_dt)
+        self._motion_num_frames = np.array(self._motion_num_frames)
+
+        num_motions = self.num_motions()
+        total_len = self.get_total_length()
+
+        print("Loaded {:d} motions with a total length of {:.3f}s.".format(num_motions, total_len))
+
+        return
+    def _fetch_motion_files(self, motion_file):
+        ext = os.path.splitext(motion_file)[1]
+        if (ext == ".yaml"):
+            # Load a multi-file library of distinct motions
+            dir_name = os.path.dirname(motion_file)
+            motion_files = []
+            motion_weights = []
+
+            with open(os.path.join(os.getcwd(), motion_file), 'r') as f:
+                motion_config = yaml.load(f, Loader=yaml.SafeLoader)
+
+            motion_list = motion_config['motions']
+            for motion_entry in motion_list:
+                curr_file = motion_entry['file']
+                curr_weight = motion_entry['weight']
+                assert(curr_weight >= 0)
+
+                curr_file = os.path.join(dir_name, curr_file)
+                motion_weights.append(curr_weight)
+                motion_files.append(curr_file)
+        else:
+            # Load a single motion
+            motion_files = [motion_file]
+            motion_weights = [1.0]
+
+        return motion_files, motion_weights
 
 class MotionData(object):
   """Motion data representing a pose trajectory for a character.
@@ -737,3 +767,6 @@ class MotionData(object):
       blend = (norm_time - time0) / (time1 - time0)
 
     return f0, f1, blend
+
+  def get_fps(self):
+    return 1.0 / self.get_frame_duration()
