@@ -21,9 +21,9 @@ INSTALL_REQUIRES = [
     "termcolor",
     "hydra-core>=1.1",
     "rl-games==1.5.2",
-    "pyvirtualdisplay",
     # Development
     "ipykernel",
+    "matplotlib"
     ]
 
 

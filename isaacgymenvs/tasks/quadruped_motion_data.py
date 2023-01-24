@@ -36,6 +36,7 @@ class LoopMode(enum.Enum):
 class MotionLib(object):
 
     def __init__(self, motion_file, device):
+        self._num_dof = 12
         self._device = device
         self._load_motions(motion_file)
 
@@ -88,8 +89,8 @@ class MotionLib(object):
             dof_pos[i, :] = frame_t[7:]
 
             root_vel[i, :] = frame_vel_t[:3]
-            root_ang_vel[i, :] = frame_vel_t[3:7]
-            dof_vel[i, :] = frame_vel_t[7:]
+            root_ang_vel[i, :] = frame_vel_t[3:6]
+            dof_vel[i, :] = frame_vel_t[6:]
 
         return root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel
 
