@@ -5,7 +5,7 @@ physics_engine: ${..physics_engine}
 
 env:
   # AMP-specific things
-  motionFile: '/home/daniel/Documents/github/ASE/isaacgymenvs/data/motions/quadruped/dataset_quadruped.yaml'
+  motionFile: '/home/daniel/Documents/github/ASE/isaacgymenvs/data/motions/quadruped/dog_trot.txt'
   # End AMP-specific things
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
