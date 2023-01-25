@@ -20,7 +20,7 @@ env:
   numAMPObsSteps: 2
 
   localRootObs: True
-  terminationHeight: 0.5
+  terminationHeight: 0.15
   enableEarlyTermination: True
 
   clipObservations: 5.0

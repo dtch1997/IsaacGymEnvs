@@ -248,11 +248,13 @@ class QuadrupedAMPBase(VecTask):
     def compute_reset(self):
         self.reset_buf, self._terminate_buf = compute_humanoid_reset(
             self.progress_buf,
-            self._terminate_buf, 
+            self._terminate_buf,
+            self.root_states, 
             self.contact_forces,
             self.knee_indices,
             self.base_index,
             self.max_episode_length, 
+            self._termination_height,
             self._enable_early_termination
         )
 
@@ -372,18 +374,23 @@ def compute_humanoid_reset(
     # tensors
     reset_buf, 
     progress_buf, 
+    root_states,
     contact_forces,
     knee_indices,
     # other
     base_index,
     max_episode_length, 
+    termination_height,
     enable_early_termination
 ):
-    # type: (Tensor, Tensor, Tensor, Tensor, int, int, bool) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, int, int, float, bool) -> Tuple[Tensor, Tensor]
     terminated = torch.zeros_like(reset_buf)
     if (enable_early_termination):
-        terminated = terminated | (torch.norm(contact_forces[:, base_index, :], dim=1) > 1.)
-        terminated = terminated | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
+        # terminated = terminated | (torch.norm(contact_forces[:, base_index, :], dim=1) > 1.)
+        # terminated = terminated | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
+        body_height = root_states[:, 2]
+        terminated = terminated | (body_height < termination_height)
+
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
     return reset, terminated
 
