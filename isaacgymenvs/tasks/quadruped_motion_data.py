@@ -50,7 +50,7 @@ class MotionLib(object):
     def get_motion(self, motion_id):
         return self._motions[motion_id]
 
-    def sample_motions(self, n):
+    def sample_motions(self, n) -> torch.Tensor:
         m = self.num_motions()
         motion_ids = np.random.choice(m, size=n, replace=True, p=self._motion_weights)
 

@@ -74,12 +74,12 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         # Initialize _amp_obs_buf, _curr_amp_obs_buf, _hist_amp_obs_buf, _amp_obs_demo_buf (?)
         self._amp_obs_space = spaces.Box(np.ones(self.get_num_amp_obs()) * -np.Inf, np.ones(self.get_num_amp_obs()) * np.Inf)
+        
         self._amp_obs_buf = torch.zeros((self.num_envs, self._num_amp_obs_steps, self._num_amp_obs_per_step), device=self.device, dtype=torch.float)
         self._curr_amp_obs_buf = self._amp_obs_buf[:, 0]
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
+
         self._amp_obs_demo_buf = None
-        
-        self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)        
 
     def post_physics_step(self):
         super().post_physics_step()
@@ -89,7 +89,6 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
-        self.extras["terminate"] = self._terminate_buf
 
         return
 
@@ -168,9 +167,16 @@ class QuadrupedAMP(QuadrupedAMPBase):
         
         Robot is initialized from default initial state. """
         # TODO: Replace 
-        self._humanoid_root_states[env_ids] = self._initial_humanoid_root_states[env_ids]
         self._dof_pos[env_ids] = self.default_dof_pos[env_ids]
-        self._dof_vel[env_ids] = self._initial_dof_vel[env_ids]
+        self._dof_vel[env_ids] = self.default_dof_vel[env_ids]
+
+        env_ids_int32 = env_ids.to(dtype=torch.int32)
+        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._initial_root_states),
+                                                     gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+
+        self.gym.set_dof_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._dof_state),
+                                              gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+
         self._reset_default_env_ids = env_ids
         return
 
@@ -245,24 +251,36 @@ class QuadrupedAMP(QuadrupedAMPBase):
         
         Overwrite the amp_obs demonstration with the sampled motion IDs and times"""
         dt = self.dt
-        motion_ids = torch.tile(motion_ids.unsqueeze(-1), [1, self._num_amp_obs_steps - 1])
-        motion_times = motion_times.unsqueeze(-1)
-        time_steps = -dt * (torch.arange(0, self._num_amp_obs_steps - 1, device=self.device) + 1)
+        motion_ids = np.tile(np.expand_dims(motion_ids, axis=-1), [1, self._num_amp_obs_steps - 1])
+        motion_times = np.expand_dims(motion_times, axis=-1)
+        time_steps = -dt * (np.arange(0, self._num_amp_obs_steps - 1) + 1)
         motion_times = motion_times + time_steps
 
-        motion_ids = motion_ids.view(-1)
-        motion_times = motion_times.view(-1)
-        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
+        motion_ids = motion_ids.flatten()
+        motion_times = motion_times.flatten()
+        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
-        amp_obs_demo = build_amp_observations(root_pos, root_rot, root_vel, root_ang_vel, 
-                                              dof_pos, dof_vel, key_pos, 
-                                              self._local_root_obs, self._root_height_obs, 
-                                              self._dof_obs_size, self._dof_offsets)
+        root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
+        amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel,
+                                      self._local_root_obs)
         self._hist_amp_obs_buf[env_ids] = amp_obs_demo.view(self._hist_amp_obs_buf[env_ids].shape)
         return
 
-    def _set_env_state(env_ids, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel):
-        raise NotImplementedError()
+    def _set_env_state(self, env_ids, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel):
+        self.root_states[env_ids, 0:3] = root_pos
+        self.root_states[env_ids, 3:7] = root_rot
+        self.root_states[env_ids, 7:10] = root_vel
+        self.root_states[env_ids, 10:13] = root_ang_vel
+        
+        self.dof_pos[env_ids] = dof_pos
+        self.dof_vel[env_ids] = dof_vel
+
+        env_ids_int32 = env_ids.to(dtype=torch.int32)
+        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.root_states), 
+                                                    gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+        self.gym.set_dof_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.dof_state),
+                                                    gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+        return
 
     def _update_hist_amp_obs(self, env_ids=None):
         """ Update history of AMP obs by shifting the timestep forward by 1. """

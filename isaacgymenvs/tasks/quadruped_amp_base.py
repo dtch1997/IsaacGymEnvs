@@ -250,39 +250,55 @@ class QuadrupedAMPBase(VecTask):
             self._enable_early_termination
         )
 
-    def compute_observations(self):
+    def compute_observations(self, env_ids = None):
         self.gym.refresh_dof_state_tensor(self.sim)  # done in step
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
         self.gym.refresh_dof_force_tensor(self.sim)
 
-        self.obs_buf[:] = compute_anymal_observations(  # tensors
-                                                        self.root_states,
-                                                        self.dof_pos,
-                                                        self.default_dof_pos,
-                                                        self.dof_vel,
-                                                        self.gravity_vec,
-                                                        self.actions,
-                                                        # scales
-                                                        self.lin_vel_scale,
-                                                        self.ang_vel_scale,
-                                                        self.dof_pos_scale,
-                                                        self.dof_vel_scale
-        )
+        if env_ids is None:
+            self.obs_buf[:] = compute_anymal_observations(  # tensors
+                                                            self.root_states,
+                                                            self.dof_pos,
+                                                            self.default_dof_pos,
+                                                            self.dof_vel,
+                                                            self.gravity_vec,
+                                                            self.actions,
+                                                            # scales
+                                                            self.lin_vel_scale,
+                                                            self.ang_vel_scale,
+                                                            self.dof_pos_scale,
+                                                            self.dof_vel_scale
+            )
+
+        else: 
+            self.obs_buf[env_ids] = compute_anymal_observations(  # tensors
+                                                            self.root_states[env_ids],
+                                                            self.dof_pos[env_ids],
+                                                            self.default_dof_pos[env_ids],
+                                                            self.dof_vel[env_ids],
+                                                            self.gravity_vec[env_ids],
+                                                            self.actions[env_ids],
+                                                            # scales
+                                                            self.lin_vel_scale,
+                                                            self.ang_vel_scale,
+                                                            self.dof_pos_scale,
+                                                            self.dof_vel_scale
+            )
 
     def reset_idx(self, env_ids):
+        self._reset_actors(env_ids)
+        self.compute_observations(env_ids)
+        
+    def _reset_actors(self, env_ids):
         # Randomization can happen only at reset time, since it can reset actor positions on GPU
         if self.randomize:
             self.apply_randomizations(self.randomization_params)
 
-        positions_offset = torch_rand_float(0.5, 1.5, (len(env_ids), self.num_dof), device=self.device)
-        velocities = torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
-
-        self.dof_pos[env_ids] = self.default_dof_pos[env_ids] * positions_offset
-        self.dof_vel[env_ids] = self.default_dof_vel[env_ids] + velocities
+        self.dof_pos[env_ids] = self.default_dof_pos[env_ids]
+        self.dof_vel[env_ids] = self.default_dof_vel[env_ids]
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
-
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
                                                      gymtorch.unwrap_tensor(self.initial_root_states),
                                                      gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
