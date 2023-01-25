@@ -197,6 +197,8 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
+        # Set root pos to begin at same position
+        root_pos[:,:2] = self.initial_root_states[env_ids,:2]
 
         self._set_env_state(env_ids=env_ids, 
                             root_pos=root_pos, 
