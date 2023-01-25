@@ -291,11 +291,6 @@ class QuadrupedAMP(QuadrupedAMPBase):
             for i in reversed(range(self._amp_obs_buf.shape[1] - 1)):
                 self._amp_obs_buf[env_ids, i + 1] = self._amp_obs_buf[env_ids, i]
         return
-
-    def compute_reward(self, actions):
-        super().compute_reward(actions)
-        # Placeholder implementation, equivalent to disabling early termination
-        self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)        
     
     def _compute_amp_observations(self, env_ids=None):
         if (env_ids is None):

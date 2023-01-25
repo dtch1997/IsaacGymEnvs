@@ -230,7 +230,8 @@ class QuadrupedAMPBase(VecTask):
             self.reset_idx(env_ids)
 
         self.compute_observations()
-        self.compute_reward(self.actions)
+        self.compute_reward()
+        self.compute_reset()
         
         self.extras["terminate"] = self._terminate_buf
 
@@ -238,15 +239,20 @@ class QuadrupedAMPBase(VecTask):
         if self.viewer and self.debug_viz:
             self._update_debug_viz()
 
-    def compute_reward(self, actions):
+    def compute_reward(self):
         self.rew_buf[:] = compute_humanoid_reward(
             # tensors
             self.obs_buf,
         )
+
+    def compute_reset(self):
         self.reset_buf, self._terminate_buf = compute_humanoid_reset(
             self.progress_buf,
             self._terminate_buf, 
-            self.max_episode_length_s, 
+            self.contact_forces,
+            self.knee_indices,
+            self.base_index,
+            self.max_episode_length, 
             self._enable_early_termination
         )
 
@@ -362,12 +368,22 @@ def compute_humanoid_reward(obs_buf):
     return reward
 
 @torch.jit.script
-def compute_humanoid_reset(reset_buf, progress_buf, 
-                           max_episode_length, enable_early_termination):
-    # type: (Tensor, Tensor, float, bool) -> Tuple[Tensor, Tensor]
+def compute_humanoid_reset(
+    # tensors
+    reset_buf, 
+    progress_buf, 
+    contact_forces,
+    knee_indices,
+    # other
+    base_index,
+    max_episode_length, 
+    enable_early_termination
+):
+    # type: (Tensor, Tensor, Tensor, Tensor, int, int, bool) -> Tuple[Tensor, Tensor]
     terminated = torch.zeros_like(reset_buf)
-    # if (enable_early_termination):
-    #     pass
+    if (enable_early_termination):
+        terminated = terminated | (torch.norm(contact_forces[:, base_index, :], dim=1) > 1.)
+        terminated = terminated | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
     return reset, terminated
 
