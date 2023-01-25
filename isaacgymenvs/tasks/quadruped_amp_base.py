@@ -338,7 +338,7 @@ class QuadrupedAMPBase(VecTask):
 
     def _update_camera(self):
         self.gym.refresh_actor_root_state_tensor(self.sim)
-        char_root_pos = self._root_states[0, 0:3].cpu().numpy()
+        char_root_pos = self.root_states[0, 0:3].cpu().numpy()
         
         cam_trans = self.gym.get_viewer_camera_transform(self.viewer, None)
         cam_pos = np.array([cam_trans.p.x, cam_trans.p.y, cam_trans.p.z])
@@ -356,6 +356,13 @@ class QuadrupedAMPBase(VecTask):
 
     def _update_debug_viz(self):
         self.gym.clear_lines(self.viewer)
+        return
+
+    def render(self):
+        if self.viewer and self.camera_follow:
+            self._update_camera()
+
+        super().render()
         return
 
 #####################################################################
