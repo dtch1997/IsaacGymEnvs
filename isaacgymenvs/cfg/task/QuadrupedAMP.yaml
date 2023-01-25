@@ -5,7 +5,7 @@ physics_engine: ${..physics_engine}
 
 env:
   # AMP-specific things
-  motionFile: '/home/daniel/Documents/github/ASE/isaacgymenvs/data/motions/quadruped/dog_trot.txt'
+  motionFile: '/home/daniel/Documents/github/IsaacGymEnvs/isaacgymenvs/data/motions/quadruped/dog_trot_hq.txt'
   # End AMP-specific things
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
@@ -15,13 +15,11 @@ env:
 
   pdControl: True
   powerScale: 1.0
-  controlFrequencyInv: 2 # 30 Hz
   stateInit: "Random"
   hybridInitProb: 0.5
   numAMPObsSteps: 2
 
-  localRootObs: False
-  contactBodies: ["right_foot", "left_foot"]
+  localRootObs: True
   terminationHeight: 0.5
   enableEarlyTermination: True
 
@@ -46,16 +44,16 @@ env:
 
   control:
     # PD Drive parameters:
-    stiffness: 85.0  # [N*m/rad]
-    damping: 2.0     # [N*m*s/rad]
-    actionScale: 0.5
+    stiffness: 20.0  # [N*m/rad]
+    damping: 1.0     # [N*m*s/rad]
+    actionScale: 2.0
     controlFrequencyInv: 1 # 60 Hz
 
   defaultJointAngles:  # = target angles when action = 0.0
-    FL_hip_joint: 0.03    # [rad]
-    RL_hip_joint: 0.03    # [rad]
-    FR_hip_joint: -0.03   # [rad]
-    RR_hip_joint: -0.03   # [rad]
+    FL_hip_joint: 0.0    # [rad]
+    RL_hip_joint: 0.0    # [rad]
+    FR_hip_joint: 0.0   # [rad]
+    RR_hip_joint: 0.0   # [rad]
 
     FL_thigh_joint: 0.8     # [rad]
     RL_thigh_joint: 0.8    # [rad]
