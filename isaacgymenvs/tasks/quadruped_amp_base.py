@@ -44,29 +44,18 @@ class QuadrupedAMPBase(VecTask):
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
 
         self.cfg = cfg
-        
-        # normalization
         self.lin_vel_scale = self.cfg["env"]["learn"]["linearVelocityScale"]
         self.ang_vel_scale = self.cfg["env"]["learn"]["angularVelocityScale"]
         self.dof_pos_scale = self.cfg["env"]["learn"]["dofPositionScale"]
         self.dof_vel_scale = self.cfg["env"]["learn"]["dofVelocityScale"]
         self.action_scale = self.cfg["env"]["control"]["actionScale"]
 
-        # reward scales
-        self.rew_scales = {}
-        self.rew_scales["lin_vel_xy"] = self.cfg["env"]["learn"]["linearVelocityXYRewardScale"]
-        self.rew_scales["ang_vel_z"] = self.cfg["env"]["learn"]["angularVelocityZRewardScale"]
-        self.rew_scales["torque"] = self.cfg["env"]["learn"]["torqueRewardScale"]
-
-        # randomization
-        self.randomization_params = self.cfg["task"]["randomization_params"]
+        self._pd_control = self.cfg["env"]["pdControl"]
+        self.power_scale = self.cfg["env"]["powerScale"]
         self.randomize = self.cfg["task"]["randomize"]
-
-        # command ranges
-        self.command_x_range = self.cfg["env"]["randomCommandVelocityRanges"]["linear_x"]
-        self.command_y_range = self.cfg["env"]["randomCommandVelocityRanges"]["linear_y"]
-        self.command_yaw_range = self.cfg["env"]["randomCommandVelocityRanges"]["yaw"]
-
+        
+        self.debug_viz = self.cfg["env"]["enableDebugVis"]
+        self.camera_follow = self.cfg["env"].get("cameraFollow", False)
         # plane params
         self.plane_static_friction = self.cfg["env"]["plane"]["staticFriction"]
         self.plane_dynamic_friction = self.cfg["env"]["plane"]["dynamicFriction"]
@@ -84,27 +73,21 @@ class QuadrupedAMPBase(VecTask):
         # default joint positions
         self.named_default_joint_angles = self.cfg["env"]["defaultJointAngles"]
 
-        self.cfg["env"]["numObservations"] = 48
+        self.cfg["env"]["numObservations"] = 45
         self.cfg["env"]["numActions"] = 12
 
+        # Call super init earlier to initialize sim params
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
-        # other
         self.dt = self.sim_params.dt
-        self.max_episode_length_s = self.cfg["env"]["learn"]["episodeLength_s"]
+        self.max_episode_length_s = self.cfg["env"]["episodeLength_s"]
         self.max_episode_length = int(self.max_episode_length_s / self.dt + 0.5)
         self.Kp = self.cfg["env"]["control"]["stiffness"]
         self.Kd = self.cfg["env"]["control"]["damping"]
 
-        for key in self.rew_scales.keys():
-            self.rew_scales[key] *= self.dt
-
-        if self.viewer != None:
-            p = self.cfg["env"]["viewer"]["pos"]
-            lookat = self.cfg["env"]["viewer"]["lookat"]
-            cam_pos = gymapi.Vec3(p[0], p[1], p[2])
-            cam_target = gymapi.Vec3(lookat[0], lookat[1], lookat[2])
-            self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
+        self._local_root_obs = self.cfg["env"]["localRootObs"]
+        self._termination_height = self.cfg["env"]["terminationHeight"]
+        self._enable_early_termination = self.cfg["env"]["enableEarlyTermination"]
 
         # get gym state tensors
         actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
@@ -124,12 +107,8 @@ class QuadrupedAMPBase(VecTask):
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3)  # shape: num_envs, num_bodies, xyz axis
         self.torques = gymtorch.wrap_tensor(torques).view(self.num_envs, self.num_dof)
-
-        self.commands = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
-        self.commands_y = self.commands.view(self.num_envs, 3)[..., 1]
-        self.commands_x = self.commands.view(self.num_envs, 3)[..., 0]
-        self.commands_yaw = self.commands.view(self.num_envs, 3)[..., 2]
         self.default_dof_pos = torch.zeros_like(self.dof_pos, dtype=torch.float, device=self.device, requires_grad=False)
+        self.default_dof_vel = torch.zeros_like(self.dof_vel, dtype=torch.float, device=self.device, requires_grad=False)
 
         for i in range(self.cfg["env"]["numActions"]):
             name = self.dof_names[i]
@@ -142,6 +121,11 @@ class QuadrupedAMPBase(VecTask):
         self.initial_root_states[:] = to_torch(self.base_init_state, device=self.device, requires_grad=False)
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+
+        self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
+
+        if self.viewer != None:
+            self._init_camera()
 
     def create_sim(self):
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
@@ -225,9 +209,18 @@ class QuadrupedAMPBase(VecTask):
         self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base")
 
     def pre_physics_step(self, actions):
-        self.actions = actions.clone().to(self.device)
-        targets = self.action_scale * self.actions + self.default_dof_pos
-        self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(targets))
+        self.actions = actions.to(self.device).clone()
+
+        if (self._pd_control):
+            pd_tar = self._action_to_pd_targets(self.actions)
+            pd_tar_tensor = gymtorch.unwrap_tensor(pd_tar)
+            self.gym.set_dof_position_target_tensor(self.sim, pd_tar_tensor)
+        else:
+            forces = self.actions * self.motor_efforts.unsqueeze(0) * self.power_scale
+            force_tensor = gymtorch.unwrap_tensor(forces)
+            self.gym.set_dof_actuation_force_tensor(self.sim, force_tensor)
+
+        return
 
     def post_physics_step(self):
         self.progress_buf += 1
@@ -238,21 +231,23 @@ class QuadrupedAMPBase(VecTask):
 
         self.compute_observations()
         self.compute_reward(self.actions)
+        
+        self.extras["terminate"] = self._terminate_buf
+
+        # debug viz
+        if self.viewer and self.debug_viz:
+            self._update_debug_viz()
 
     def compute_reward(self, actions):
-        self.rew_buf[:], self.reset_buf[:] = compute_anymal_reward(
+        self.rew_buf[:] = compute_humanoid_reward(
             # tensors
-            self.root_states,
-            self.commands,
-            self.torques,
-            self.contact_forces,
-            self.knee_indices,
+            self.obs_buf,
+        )
+        self.reset_buf, self._terminate_buf = compute_humanoid_reset(
             self.progress_buf,
-            # Dict
-            self.rew_scales,
-            # other
-            self.base_index,
-            self.max_episode_length,
+            self._terminate_buf, 
+            self.max_episode_length_s, 
+            self._enable_early_termination
         )
 
     def compute_observations(self):
@@ -263,7 +258,6 @@ class QuadrupedAMPBase(VecTask):
 
         self.obs_buf[:] = compute_anymal_observations(  # tensors
                                                         self.root_states,
-                                                        self.commands,
                                                         self.dof_pos,
                                                         self.default_dof_pos,
                                                         self.dof_vel,
@@ -285,7 +279,7 @@ class QuadrupedAMPBase(VecTask):
         velocities = torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
 
         self.dof_pos[env_ids] = self.default_dof_pos[env_ids] * positions_offset
-        self.dof_vel[env_ids] = velocities
+        self.dof_vel[env_ids] = self.default_dof_vel[env_ids] + velocities
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
 
@@ -297,12 +291,48 @@ class QuadrupedAMPBase(VecTask):
                                               gymtorch.unwrap_tensor(self.dof_state),
                                               gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
-        self.commands_x[env_ids] = torch_rand_float(self.command_x_range[0], self.command_x_range[1], (len(env_ids), 1), device=self.device).squeeze()
-        self.commands_y[env_ids] = torch_rand_float(self.command_y_range[0], self.command_y_range[1], (len(env_ids), 1), device=self.device).squeeze()
-        self.commands_yaw[env_ids] = torch_rand_float(self.command_yaw_range[0], self.command_yaw_range[1], (len(env_ids), 1), device=self.device).squeeze()
-
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        self._terminate_buf[env_ids] = 0
+
+    def _init_camera(self):
+        self.gym.refresh_actor_root_state_tensor(self.sim)
+        self._cam_prev_char_pos = self.root_states[0, 0:3].cpu().numpy()
+        
+        cam_pos = gymapi.Vec3(self._cam_prev_char_pos[0], 
+                              self._cam_prev_char_pos[1] - 3.0, 
+                              1.0)
+        cam_target = gymapi.Vec3(self._cam_prev_char_pos[0],
+                                 self._cam_prev_char_pos[1],
+                                 1.0)
+        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
+        return
+
+    def _action_to_pd_targets(self, action):
+        pd_tar = self.default_dof_pos + self.action_scale * action
+        return pd_tar
+
+    def _update_camera(self):
+        self.gym.refresh_actor_root_state_tensor(self.sim)
+        char_root_pos = self._root_states[0, 0:3].cpu().numpy()
+        
+        cam_trans = self.gym.get_viewer_camera_transform(self.viewer, None)
+        cam_pos = np.array([cam_trans.p.x, cam_trans.p.y, cam_trans.p.z])
+        cam_delta = cam_pos - self._cam_prev_char_pos
+
+        new_cam_target = gymapi.Vec3(char_root_pos[0], char_root_pos[1], 1.0)
+        new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0], 
+                                  char_root_pos[1] + cam_delta[1], 
+                                  cam_pos[2])
+
+        self.gym.viewer_camera_look_at(self.viewer, None, new_cam_pos, new_cam_target)
+
+        self._cam_prev_char_pos[:] = char_root_pos
+        return
+
+    def _update_debug_viz(self):
+        self.gym.clear_lines(self.viewer)
+        return
 
 #####################################################################
 ###=========================jit functions=========================###
@@ -310,51 +340,23 @@ class QuadrupedAMPBase(VecTask):
 
 
 @torch.jit.script
-def compute_anymal_reward(
-    # tensors
-    root_states,
-    commands,
-    torques,
-    contact_forces,
-    knee_indices,
-    episode_lengths,
-    # Dict
-    rew_scales,
-    # other
-    base_index,
-    max_episode_length
-):
-    # (reward, reset, feet_in air, feet_air_time, episode sums)
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Dict[str, float], int, int) -> Tuple[Tensor, Tensor]
+def compute_humanoid_reward(obs_buf):
+    # type: (Tensor) -> Tensor
+    reward = torch.ones_like(obs_buf[:, 0])
+    return reward
 
-    # prepare quantities (TODO: return from obs ?)
-    base_quat = root_states[:, 3:7]
-    base_lin_vel = quat_rotate_inverse(base_quat, root_states[:, 7:10])
-    base_ang_vel = quat_rotate_inverse(base_quat, root_states[:, 10:13])
-
-    # velocity tracking reward
-    lin_vel_error = torch.sum(torch.square(commands[:, :2] - base_lin_vel[:, :2]), dim=1)
-    ang_vel_error = torch.square(commands[:, 2] - base_ang_vel[:, 2])
-    rew_lin_vel_xy = torch.exp(-lin_vel_error/0.25) * rew_scales["lin_vel_xy"]
-    rew_ang_vel_z = torch.exp(-ang_vel_error/0.25) * rew_scales["ang_vel_z"]
-
-    # torque penalty
-    rew_torque = torch.sum(torch.square(torques), dim=1) * rew_scales["torque"]
-
-    total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque
-    total_reward = torch.clip(total_reward, 0., None)
-    # reset agents
-    reset = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.
-    reset = reset | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
-    time_out = episode_lengths >= max_episode_length - 1  # no terminal reward for time-outs
-    reset = reset | time_out
-
-    return total_reward.detach(), reset
-
+@torch.jit.script
+def compute_humanoid_reset(reset_buf, progress_buf, 
+                           max_episode_length, enable_early_termination):
+    # type: (Tensor, Tensor, float, bool) -> Tuple[Tensor, Tensor]
+    terminated = torch.zeros_like(reset_buf)
+    # if (enable_early_termination):
+    #     pass
+    reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
+    return reset, terminated
 
 @torch.jit.script
 def compute_anymal_observations(root_states,
-                                commands,
                                 dof_pos,
                                 default_dof_pos,
                                 dof_vel,
@@ -366,19 +368,16 @@ def compute_anymal_observations(root_states,
                                 dof_vel_scale
                                 ):
 
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float, float, float, float) -> Tensor
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float, float, float, float) -> Tensor
     base_quat = root_states[:, 3:7]
     base_lin_vel = quat_rotate_inverse(base_quat, root_states[:, 7:10]) * lin_vel_scale
     base_ang_vel = quat_rotate_inverse(base_quat, root_states[:, 10:13]) * ang_vel_scale
     projected_gravity = quat_rotate(base_quat, gravity_vec)
     dof_pos_scaled = (dof_pos - default_dof_pos) * dof_pos_scale
 
-    commands_scaled = commands*torch.tensor([lin_vel_scale, lin_vel_scale, ang_vel_scale], requires_grad=False, device=commands.device)
-
     obs = torch.cat((base_lin_vel,
                      base_ang_vel,
                      projected_gravity,
-                     commands_scaled,
                      dof_pos_scaled,
                      dof_vel*dof_vel_scale,
                      actions
