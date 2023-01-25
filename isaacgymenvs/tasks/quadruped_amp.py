@@ -36,7 +36,7 @@ from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
 
-from isaacgymenvs.tasks.quadruped import Quadruped
+from isaacgymenvs.tasks.quadruped_amp_base import QuadrupedAMPBase
 from isaacgymenvs.tasks.quadruped_motion_data import MotionLib
 
 from isaacgym.torch_utils import *
@@ -45,7 +45,7 @@ from isaacgymenvs.utils.torch_jit_utils import *
 from typing import Tuple, Dict
 
 
-class QuadrupedAMP(Quadruped):
+class QuadrupedAMP(QuadrupedAMPBase):
     class StateInit(Enum):
         Default = 0
         Start = 1
