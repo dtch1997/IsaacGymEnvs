@@ -48,7 +48,6 @@ class QuadrupedAMPBase(VecTask):
         self.ang_vel_scale = self.cfg["env"]["learn"]["angularVelocityScale"]
         self.dof_pos_scale = self.cfg["env"]["learn"]["dofPositionScale"]
         self.dof_vel_scale = self.cfg["env"]["learn"]["dofVelocityScale"]
-        self.action_scale = self.cfg["env"]["control"]["actionScale"]
 
         self._pd_control = self.cfg["env"]["pdControl"]
         self.power_scale = self.cfg["env"]["powerScale"]
@@ -123,6 +122,7 @@ class QuadrupedAMPBase(VecTask):
         self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
 
         self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
+        self._build_pd_action_offset_scale()
 
         if self.viewer != None:
             self._init_camera()
@@ -182,10 +182,20 @@ class QuadrupedAMPBase(VecTask):
         self.base_index = 0
 
         dof_props = self.gym.get_asset_dof_properties(anymal_asset)
+        self.dof_limits_lower = []
+        self.dof_limits_upper = []
         for i in range(self.num_dof):
             dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
             dof_props['stiffness'][i] = self.cfg["env"]["control"]["stiffness"] #self.Kp
             dof_props['damping'][i] = self.cfg["env"]["control"]["damping"] #self.Kd
+            if dof_props['lower'][i] > dof_props['upper'][i]:
+                self.dof_limits_lower.append(dof_props['upper'][i])
+                self.dof_limits_upper.append(dof_props['lower'][i])
+            else:
+                self.dof_limits_lower.append(dof_props['lower'][i])
+                self.dof_limits_upper.append(dof_props['upper'][i])
+        self.dof_limits_lower = to_torch(self.dof_limits_lower, device=self.device)
+        self.dof_limits_upper = to_torch(self.dof_limits_upper, device=self.device)
 
         env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
@@ -209,6 +219,7 @@ class QuadrupedAMPBase(VecTask):
         self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base")
 
     def pre_physics_step(self, actions):
+        import pdb; pdb.set_trace()
         self.actions = actions.to(self.device).clone()
 
         if (self._pd_control):
@@ -333,7 +344,7 @@ class QuadrupedAMPBase(VecTask):
         return
 
     def _action_to_pd_targets(self, action):
-        pd_tar = self.default_dof_pos + self.action_scale * action
+        pd_tar = self._pd_action_offset + self._pd_action_scale * action
         return pd_tar
 
     def _update_camera(self):
@@ -363,6 +374,33 @@ class QuadrupedAMPBase(VecTask):
             self._update_camera()
 
         super().render()
+        return
+
+    def _build_pd_action_offset_scale(self):
+        num_joints = 12
+        
+        lim_low = self.dof_limits_lower.cpu().numpy()
+        lim_high = self.dof_limits_upper.cpu().numpy()
+
+        for dof_offset in range(num_joints):
+            curr_low = lim_low[dof_offset]
+            curr_high = lim_high[dof_offset]
+            curr_mid = 0.5 * (curr_high + curr_low)
+            
+            # extend the action range to be a bit beyond the joint limits so that the motors
+            # don't lose their strength as they approach the joint limits
+            curr_scale = 0.7 * (curr_high - curr_low)
+            curr_low = curr_mid - curr_scale
+            curr_high = curr_mid + curr_scale
+
+            lim_low[dof_offset] = curr_low
+            lim_high[dof_offset] =  curr_high
+
+        self._pd_action_offset = 0.5 * (lim_high + lim_low)
+        self._pd_action_scale = 0.5 * (lim_high - lim_low)
+        self._pd_action_offset = to_torch(self._pd_action_offset, device=self.device)
+        self._pd_action_scale = to_torch(self._pd_action_scale, device=self.device)
+
         return
 
 #####################################################################
