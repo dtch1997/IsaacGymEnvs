@@ -219,7 +219,6 @@ class QuadrupedAMPBase(VecTask):
         self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base")
 
     def pre_physics_step(self, actions):
-        import pdb; pdb.set_trace()
         self.actions = actions.to(self.device).clone()
 
         if (self._pd_control):
