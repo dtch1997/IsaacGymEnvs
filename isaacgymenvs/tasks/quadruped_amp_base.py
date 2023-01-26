@@ -202,7 +202,7 @@ class QuadrupedAMPBase(VecTask):
         self.anymal_handles = []
         self.envs = []
 
-        for i in range(self.num_envs):
+        for i in range(self.num_envs-1):
             # create env instance
             env_ptr = self.gym.create_env(self.sim, env_lower, env_upper, num_per_row)
             anymal_handle = self.gym.create_actor(env_ptr, anymal_asset, start_pose, "anymal", i, 1, 0)
@@ -210,6 +210,8 @@ class QuadrupedAMPBase(VecTask):
             self.gym.enable_actor_dof_force_sensors(env_ptr, anymal_handle)
             self.envs.append(env_ptr)
             self.anymal_handles.append(anymal_handle)
+
+        self._create_visual_actor(anymal_asset, start_pose, self.num_envs-1)
 
         for i in range(len(feet_names)):
             self.feet_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], feet_names[i])
@@ -402,6 +404,19 @@ class QuadrupedAMPBase(VecTask):
         self._pd_action_scale = to_torch(self._pd_action_scale, device=self.device)
 
         return
+
+    def _create_visual_actor(self, asset, start_pose, contact_filter):
+        # Create visual actor
+        self.visual_env_ptr = self.envs[0]
+        self.ref_actor_handle = self.gym.create_actor(self.visual_env_ptr, asset, start_pose, "reference_motion", self.num_envs-1, contact_filter, 0)
+        for j in range(self.num_bodies):
+            self.gym.set_rigid_body_color(
+                self.visual_env_ptr, self.ref_actor_handle, j, gymapi.MESH_VISUAL, gymapi.Vec3(0.8, 0.8, 0.8))
+        visual_dof_prop = self.gym.get_asset_dof_properties(asset)
+        visual_dof_prop["driveMode"] = gymapi.DOF_MODE_POS
+        visual_dof_prop["stiffness"] = 0
+        visual_dof_prop["damping"] = 0
+        self.gym.set_actor_dof_properties(self.visual_env_ptr, self.ref_actor_handle, visual_dof_prop)
 
 #####################################################################
 ###=========================jit functions=========================###

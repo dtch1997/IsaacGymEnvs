@@ -100,12 +100,15 @@ class QuadrupedAMP(QuadrupedAMPBase):
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
 
         self._amp_obs_demo_buf = None
+        self.reset_root_states = self.root_states.clone()
+        self.last_motion_time = 1.0
 
     def post_physics_step(self):
         super().post_physics_step()
         
         self._update_hist_amp_obs()
         self._compute_amp_observations()
+        self._update_visual_actor()
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
@@ -201,6 +204,9 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         self._reset_default_env_ids = env_ids
         return
+
+    def _cache_root_state(self):
+        self.reset_root_states[:] = self.root_states[:]
 
     def _reset_ref_state_init(self, env_ids):
         """ Reference state initialization of robot. 
@@ -340,6 +346,42 @@ class QuadrupedAMP(QuadrupedAMPBase):
             for i in reversed(range(self._amp_obs_buf.shape[1] - 1)):
                 self._amp_obs_buf[env_ids, i + 1] = self._amp_obs_buf[env_ids, i]
         return
+
+    def _update_visual_actor(self):
+        # Get the reference motion state of actor 0 at given time
+        dt = self.dt 
+        motion_id = self._reset_ref_motion_ids[0]
+        motion_time = dt * self.progress_buf[0].sum().cpu().numpy() + self._reset_ref_motion_times[0] 
+        import math
+        motion_length = self._motion_lib.get_motion_length(0)
+        motion_time = motion_time - motion_length * math.trunc(motion_time / motion_length)
+        if motion_time < self.last_motion_time:
+            # We have reached end of one animation cycle
+            # Cache all the root states regardless of env id
+            # Because when visual actor resets, we need updated real actor root state
+            self._cache_root_state()
+        self.last_motion_time = motion_time
+
+        root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
+               = self._motion_lib.get_motion_state([motion_id], [motion_time])
+        # Sync orientation with actor 0
+        root_rot_0 = self.reset_root_states[0:1, 3:7]
+        root_rot = quat_mul(root_rot, root_rot_0)
+        root_pos[-1] = my_quat_rotate(root_rot_0, root_pos)
+        # Sync position with actor 0
+        root_pos[-1, :2] += self.reset_root_states[0, :2]
+        root_pos[-1, 2] = self.reset_root_states[0, 2] 
+        # Add forward offset for visibility
+        root_pos[-1, 0] += 0.7
+
+        # Set the motion state of visual actor to reference motion state
+        self._set_env_state(env_ids=to_torch([self.num_envs-1], dtype=torch.int64), 
+                            root_pos=root_pos, 
+                            root_rot=root_rot, 
+                            dof_pos=dof_pos, 
+                            root_vel=root_vel, 
+                            root_ang_vel=root_ang_vel, 
+                            dof_vel=dof_vel)
     
     def _compute_amp_observations(self, env_ids=None):
         if (env_ids is None):
