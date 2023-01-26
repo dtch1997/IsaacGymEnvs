@@ -275,6 +275,7 @@ class QuadrupedAMPBase(VecTask):
         self.gym.refresh_net_contact_force_tensor(self.sim)
         self.gym.refresh_dof_force_tensor(self.sim)
 
+        # TODO: Replace default_dof_pos with _pd_action_offset
         if env_ids is None:
             self.obs_buf[:] = compute_anymal_observations(  # tensors
                                                             self.root_states,
