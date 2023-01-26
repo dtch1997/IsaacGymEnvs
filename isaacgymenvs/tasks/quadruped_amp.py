@@ -349,7 +349,8 @@ def build_amp_observations(root_states, dof_pos, dof_vel, local_root_obs):
     root_vel = root_states[:, 7:10]
     root_ang_vel = root_states[:, 10:13]
 
-    root_h = root_pos[:, 2:3]
+    # root_h = root_pos[:, 2:3]
+    dummy_root_h = torch.zeros_like(root_pos[:, 2:3])
     heading_rot = calc_heading_quat_inv(root_rot)
 
     if (local_root_obs):
@@ -363,5 +364,5 @@ def build_amp_observations(root_states, dof_pos, dof_vel, local_root_obs):
 
     dof_obs = dof_to_obs(dof_pos)
 
-    obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel), dim=-1)
+    obs = torch.cat((dummy_root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel), dim=-1)
     return obs
