@@ -17,6 +17,7 @@ env:
   stateInit: "Random"
   hybridInitProb: 0.5
   numAMPObsSteps: 2
+  AMPObsNoiseStd: 0.00
 
   localRootObs: False
   contactBodies: ["right_foot", "left_foot"]
