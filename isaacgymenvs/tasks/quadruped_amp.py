@@ -358,11 +358,12 @@ def build_amp_observations(root_states, dof_pos, dof_vel, local_root_obs):
     else:
         root_rot_obs = root_rot
     root_rot_obs = quat_to_tan_norm(root_rot_obs)
+    dummy_root_rot_obs = torch.zeros_like(root_rot_obs)
 
     local_root_vel = my_quat_rotate(heading_rot, root_vel)
     local_root_ang_vel = my_quat_rotate(heading_rot, root_ang_vel)
 
     dof_obs = dof_to_obs(dof_pos)
 
-    obs = torch.cat((dummy_root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel), dim=-1)
+    obs = torch.cat((dummy_root_h, dummy_root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel), dim=-1)
     return obs
