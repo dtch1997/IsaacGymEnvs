@@ -167,14 +167,14 @@ class QuadrupedAMP(QuadrupedAMPBase):
         
         Robot is initialized from default initial state. """
         # TODO: Replace 
-        self._dof_pos[env_ids] = self.default_dof_pos[env_ids]
-        self._dof_vel[env_ids] = self.default_dof_vel[env_ids]
+        self.dof_pos[env_ids] = self.default_dof_pos[env_ids]
+        self.dof_vel[env_ids] = self.default_dof_vel[env_ids]
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
-        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._initial_root_states),
+        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.initial_root_states),
                                                      gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
-        self.gym.set_dof_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._dof_state),
+        self.gym.set_dof_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.dof_state),
                                               gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
         self._reset_default_env_ids = env_ids
