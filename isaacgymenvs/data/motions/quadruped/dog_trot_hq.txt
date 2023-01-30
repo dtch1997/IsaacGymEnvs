@@ -1,6 +1,6 @@
 {
 "LoopMode": "Wrap",
-"FrameDuration": 0.01667,
+"FrameDuration": 0.033,
 "EnableCycleOffsetPosition": true,
 "EnableCycleOffsetRotation": false,
 
