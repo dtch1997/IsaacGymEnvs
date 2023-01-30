@@ -44,7 +44,7 @@ env:
 
   control:
     # PD Drive parameters:
-    stiffness: 20.0  # [N*m/rad]
+    stiffness: 40.0  # [N*m/rad]
     damping: 1.0     # [N*m*s/rad]
     # Replaced manual actionScale with automatic action scale calculated from URDF
     # actionScale: 2.0
