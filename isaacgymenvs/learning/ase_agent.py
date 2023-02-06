@@ -38,6 +38,30 @@ class ASEAgent(amp_continuous.AMPAgent):
         super().__init__(base_name, params)
         return
 
+    def init_tensors(self):
+        super().init_tensors()
+        
+        batch_shape = self.experience_buffer.obs_base_shape
+        self.experience_buffer.tensor_dict['ase_latents'] = torch.zeros(batch_shape + (self._latent_dim,),
+                                                                dtype=torch.float32, device=self.ppo_device)
+        
+        self._ase_latents = torch.zeros((batch_shape[-1], self._latent_dim), dtype=torch.float32,
+                                         device=self.ppo_device)
+        
+        self.tensor_list += ['ase_latents']
+
+        self._latent_reset_steps = torch.zeros(batch_shape[-1], dtype=torch.int32, device=self.ppo_device)
+        num_envs = self.vec_env.env.num_envs
+        env_ids = to_torch(np.arange(num_envs), dtype=torch.long, device=self.ppo_device)
+        self._reset_latent_step_count(env_ids)
+
+        return
+
+    def _reset_latent_step_count(self, env_ids):
+        self._latent_reset_steps[env_ids] = torch.randint_like(self._latent_reset_steps[env_ids], low=self._latent_steps_min, 
+                                                         high=self._latent_steps_max)
+        return
+
     def _load_config_params(self, config):
         super()._load_config_params(config)
         
@@ -61,3 +85,32 @@ class ASEAgent(amp_continuous.AMPAgent):
         config = super()._build_net_config()
         config['ase_latent_shape'] = (self._latent_dim,)
         return config
+
+    def _reset_latents(self, env_ids):
+        n = len(env_ids)
+        z = self._sample_latents(n)
+        self._ase_latents[env_ids] = z
+
+        if (self.vec_env.env.viewer):
+            self._change_char_color(env_ids)
+
+        return
+
+    def _sample_latents(self, n):
+        z = self.model.a2c_network.sample_latents(n)
+        return z
+
+    def _update_latents(self):
+        new_latent_envs = self._latent_reset_steps <= self.vec_env.env.progress_buf
+
+        need_update = torch.any(new_latent_envs)
+        if (need_update):
+            new_latent_env_ids = new_latent_envs.nonzero(as_tuple=False).flatten()
+            self._reset_latents(new_latent_env_ids)
+            self._latent_reset_steps[new_latent_env_ids] += torch.randint_like(self._latent_reset_steps[new_latent_env_ids],
+                                                                               low=self._latent_steps_min, 
+                                                                               high=self._latent_steps_max)
+            if (self.vec_env.env.viewer):
+                self._change_char_color(new_latent_env_ids)
+
+        return
