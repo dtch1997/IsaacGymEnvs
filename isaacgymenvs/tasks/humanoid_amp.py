@@ -82,7 +82,6 @@ class HumanoidAMP(HumanoidAMPBase):
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
         
         self._amp_obs_demo_buf = None
-        self._amp_obs_noise_std = cfg["env"]["AMPObsNoiseStd"]
 
         return
 
@@ -129,8 +128,6 @@ class HumanoidAMP(HumanoidAMPBase):
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
                                       self._local_root_obs)
-        # Add noise only to the mo-cap, to determine how much this influences discriminator learning
-        amp_obs_demo += torch.randn_like(amp_obs_demo) * self._amp_obs_noise_std
         self._amp_obs_demo_buf[:] = amp_obs_demo.view(self._amp_obs_demo_buf.shape)
 
         amp_obs_demo_flat = self._amp_obs_demo_buf.view(-1, self.get_num_amp_obs())
