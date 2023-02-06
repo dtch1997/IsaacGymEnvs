@@ -174,19 +174,12 @@ class CommonAgent(a2c_continuous.A2CAgent):
                         self.save(self.model_output_file + "_" + str(epoch_num))
 
                 if epoch_num > self.max_epochs:
-                    self.save(self.model_output_file, save_wandb=True)
+                    self.save(self.model_output_file)
                     print('MAX EPOCHS NUM!')
                     return self.last_mean_rewards, epoch_num
 
                 update_time = 0
         return
-
-    def save(self, fn, save_wandb=False):
-        state = self.get_full_state_weights()
-        torch_ext.save_checkpoint(fn, state)
-        if "wandb" in self.config and save_wandb:
-            import wandb 
-            wandb.save(fn + ".pth", policy="now")
 
     def train_epoch(self):
         play_time_start = time.time()
