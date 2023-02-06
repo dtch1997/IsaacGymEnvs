@@ -56,6 +56,7 @@ def launch_rlg_hydra(cfg: DictConfig):
     from isaacgymenvs.learning import amp_players
     from isaacgymenvs.learning import amp_models
     from isaacgymenvs.learning import amp_network_builder
+    from isaacgymenvs.learning import ase_agent, ase_players, ase_models, ase_network_builder
     import isaacgymenvs
 
     time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -141,9 +142,13 @@ def launch_rlg_hydra(cfg: DictConfig):
     def build_runner(algo_observer):
         runner = Runner(algo_observer)
         runner.algo_factory.register_builder('amp_continuous', lambda **kwargs : amp_continuous.AMPAgent(**kwargs))
+        runner.algo_factory.register_builder('ase', lambda **kwargs: ase_agent.ASEAgent(**kwargs))
         runner.player_factory.register_builder('amp_continuous', lambda **kwargs : amp_players.AMPPlayerContinuous(**kwargs))
+        runner.player_factory.register_builder('ase', lambda **kwargs: ase_players.ASEPlayer(**kwargs))
         model_builder.register_model('continuous_amp', lambda network, **kwargs : amp_models.ModelAMPContinuous(network))
+        model_builder.register_model('ase', lambda network, **kwargs : ase_models.ModelASEContinuous(network))
         model_builder.register_network('amp', lambda **kwargs : amp_network_builder.AMPBuilder())
+        model_builder.register_network('ase', lambda **kwargs : ase_network_builder.ASEBuilder())
 
         return runner
 

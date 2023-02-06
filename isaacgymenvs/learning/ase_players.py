@@ -31,8 +31,8 @@ import torch
 from isaacgym.torch_utils import *
 from rl_games.algos_torch import players
 
-from learning import amp_players
-from learning import ase_network_builder
+from isaacgymenvs.learning import amp_players
+from isaacgymenvs.learning import ase_network_builder
 
 class ASEPlayer(amp_players.AMPPlayerContinuous):
     def __init__(self, config):

@@ -35,7 +35,7 @@ import torch.nn as nn
 import numpy as np
 import enum
 
-from learning import amp_network_builder
+from isaacgymenvs.learning import amp_network_builder
 
 ENC_LOGIT_INIT_SCALE = 0.1
 

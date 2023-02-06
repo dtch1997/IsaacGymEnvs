@@ -34,8 +34,8 @@ from rl_games.algos_torch import torch_ext
 from rl_games.common import a2c_common
 
 class ASEAgent(amp_continuous.AMPAgent):
-    def __init__(self, base_name, config):
-        super().__init__(base_name, config)
+    def __init__(self, base_name, params):
+        super().__init__(base_name, params)
         return
 
     def init_tensors(self):
@@ -51,7 +51,7 @@ class ASEAgent(amp_continuous.AMPAgent):
         self.tensor_list += ['ase_latents']
 
         self._latent_reset_steps = torch.zeros(batch_shape[-1], dtype=torch.int32, device=self.ppo_device)
-        num_envs = self.vec_env.env.task.num_envs
+        num_envs = self.vec_env.env.num_envs
         env_ids = to_torch(np.arange(num_envs), dtype=torch.long, device=self.ppo_device)
         self._reset_latent_step_count(env_ids)
 
@@ -111,7 +111,7 @@ class ASEAgent(amp_continuous.AMPAgent):
             self.current_rewards = self.current_rewards * not_dones.unsqueeze(1)
             self.current_lengths = self.current_lengths * not_dones
         
-            if (self.vec_env.env.task.viewer):
+            if (self.vec_env.env.viewer):
                 self._amp_debug(infos, self._ase_latents)
 
             done_indices = done_indices[:, 0]
@@ -331,11 +331,11 @@ class ASEAgent(amp_continuous.AMPAgent):
 
         return
     
-    def env_reset(self, env_ids=None):
-        obs = super().env_reset(env_ids)
+    def env_reset(self):
+        obs, env_ids = super()._env_reset_done()
         
         if (env_ids is None):
-            num_envs = self.vec_env.env.task.num_envs
+            num_envs = self.vec_env.env.num_envs
             env_ids = to_torch(np.arange(num_envs), dtype=torch.long, device=self.ppo_device)
 
         if (len(env_ids) > 0):
@@ -378,7 +378,7 @@ class ASEAgent(amp_continuous.AMPAgent):
         z = self._sample_latents(n)
         self._ase_latents[env_ids] = z
 
-        if (self.vec_env.env.task.viewer):
+        if (self.vec_env.env.viewer):
             self._change_char_color(env_ids)
 
         return
@@ -388,7 +388,7 @@ class ASEAgent(amp_continuous.AMPAgent):
         return z
 
     def _update_latents(self):
-        new_latent_envs = self._latent_reset_steps <= self.vec_env.env.task.progress_buf
+        new_latent_envs = self._latent_reset_steps <= self.vec_env.env.progress_buf
 
         need_update = torch.any(new_latent_envs)
         if (need_update):
@@ -397,7 +397,7 @@ class ASEAgent(amp_continuous.AMPAgent):
             self._latent_reset_steps[new_latent_env_ids] += torch.randint_like(self._latent_reset_steps[new_latent_env_ids],
                                                                                low=self._latent_steps_min, 
                                                                                high=self._latent_steps_max)
-            if (self.vec_env.env.task.viewer):
+            if (self.vec_env.env.viewer):
                 self._change_char_color(new_latent_env_ids)
 
         return
@@ -536,6 +536,9 @@ class ASEAgent(amp_continuous.AMPAgent):
         return
 
     def _change_char_color(self, env_ids):
+        # TODO: Implement char color changes
+        return
+        
         base_col = np.array([0.4, 0.4, 0.4])
         range_col = np.array([0.0706, 0.149, 0.2863])
         range_sum = np.linalg.norm(range_col)
@@ -543,7 +546,7 @@ class ASEAgent(amp_continuous.AMPAgent):
         rand_col = np.random.uniform(0.0, 1.0, size=3)
         rand_col = range_sum * rand_col / np.linalg.norm(rand_col)
         rand_col += base_col
-        self.vec_env.env.task.set_char_color(rand_col, env_ids)
+        self.vec_env.env.set_char_color(rand_col, env_ids)
         return
 
     def _amp_debug(self, info, ase_latents):

@@ -70,6 +70,7 @@ isaacgym_task_map = {
     "Quadcopter": Quadcopter,
     "Quadruped": Quadruped, 
     "QuadrupedAMP": QuadrupedAMP,
+    "QuadrupedASE": QuadrupedAMP,
     "ShadowHand": ShadowHand,
     "Trifinger": Trifinger,
 }
