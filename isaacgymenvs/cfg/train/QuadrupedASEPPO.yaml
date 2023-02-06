@@ -5,10 +5,10 @@ params:
     name: ase
 
   model:
-    name: continuous_amp
+    name: ase
 
   network:
-    name: amp
+    name: ase
     separate: True
 
     space:
