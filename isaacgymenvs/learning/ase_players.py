@@ -35,17 +35,19 @@ from isaacgymenvs.learning import amp_players
 from isaacgymenvs.learning import ase_network_builder
 
 class ASEPlayer(amp_players.AMPPlayerContinuous):
-    def __init__(self, config):
+    def __init__(self, params):
+
+        config = params['config']
         self._latent_dim = config['latent_dim']
         self._latent_steps_min = config.get('latent_steps_min', np.inf)
         self._latent_steps_max = config.get('latent_steps_max', np.inf)
 
         self._enc_reward_scale = config['enc_reward_scale']
 
-        super().__init__(config)
+        super().__init__(params)
         
         if (hasattr(self, 'env')):
-            batch_size = self.env.task.num_envs
+            batch_size = self.env.num_envs
         else:
             batch_size = self.env_info['num_envs']
         self._ase_latents = torch.zeros((batch_size, self._latent_dim), dtype=torch.float32,
@@ -86,9 +88,9 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
         current_action = torch.squeeze(current_action.detach())
         return  players.rescale_actions(self.actions_low, self.actions_high, torch.clamp(current_action, -1.0, 1.0))
 
-    def env_reset(self, env_ids=None):
-        obs = super().env_reset(env_ids)
-        self._reset_latents(env_ids)
+    def env_reset(self, env):
+        obs = super().env_reset(env)
+        # TODO: How to reset the latent on done?
         return obs
     
     def _build_net_config(self):
@@ -98,7 +100,7 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
     
     def _reset_latents(self, done_env_ids=None):
         if (done_env_ids is None):
-            num_envs = self.env.task.num_envs
+            num_envs = self.env.num_envs
             done_env_ids = to_torch(np.arange(num_envs), dtype=torch.long, device=self.device)
 
         rand_vals = self.model.a2c_network.sample_latents(len(done_env_ids))
@@ -112,9 +114,9 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
             self._reset_latents()
             self._reset_latent_step_count()
 
-            if (self.env.task.viewer):
+            if (self.env.viewer):
                 print("Sampling new amp latents------------------------------")
-                num_envs = self.env.task.num_envs
+                num_envs = self.env.num_envs
                 env_ids = to_torch(np.arange(num_envs), dtype=torch.long, device=self.device)
                 self._change_char_color(env_ids)
         else:
@@ -176,5 +178,6 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
         rand_col = np.random.uniform(0.0, 1.0, size=3)
         rand_col = range_sum * rand_col / np.linalg.norm(rand_col)
         rand_col += base_col
-        self.env.task.set_char_color(rand_col, env_ids)
+        # TODO: Implement character color change?
+        # self.env.set_char_color(rand_col, env_ids)
         return
