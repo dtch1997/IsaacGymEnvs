@@ -29,6 +29,7 @@
 from isaacgymenvs.learning import amp_continuous
 
 import torch
+import torch.nn as nn
 from isaacgym.torch_utils import *
 from rl_games.algos_torch import torch_ext
 from rl_games.common import a2c_common
