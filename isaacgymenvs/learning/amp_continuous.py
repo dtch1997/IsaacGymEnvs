@@ -550,6 +550,7 @@ class AMPAgent(common_agent.CommonAgent):
 
     def _record_train_batch_info(self, batch_dict, train_info):
         train_info['disc_rewards'] = batch_dict['disc_rewards']
+        train_info['values'] = batch_dict['values']
         return
 
     def _log_train_info(self, train_info, frame):
@@ -570,11 +571,13 @@ class AMPAgent(common_agent.CommonAgent):
 
         self.writer.add_scalar('debug/param_norm', torch_ext.mean_list(train_info['param_norm']))
         self.writer.add_scalar('debug/gradient_norm', torch_ext.mean_list(train_info['gradient_norm']))
+        value_std, value_mean = torch.std_mean(train_info['values'])
+        self.writer.add_scalar('debug/value_std', value_std.item())
+        self.writer.add_scalar('debug/value_mean', value_mean.item())
         if self.normalize_value:
             self.writer.add_scalar('debug/value_running_mean', torch_ext.mean_list(train_info['value_running_mean']))
             self.writer.add_scalar('debug/value_running_var', torch_ext.mean_list(train_info['value_running_var']))
             self.writer.add_scalar('debug/value_count', torch_ext.mean_list(train_info['value_count']))
-        
         return
 
     def _amp_debug(self, info):
