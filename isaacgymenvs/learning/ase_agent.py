@@ -280,6 +280,15 @@ class ASEAgent(amp_continuous.AMPAgent):
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
+        # Record the model parameter norm and gradient norm for debugging
+        param_norm = 0
+        gradient_norm = 0
+        for param in self.model.parameters():
+            if not param.requires_grad or (param.grad is None):
+                continue
+            gradient_norm += param.grad.detach().data.norm(2) ** 2
+            param_norm += param.detach().data.norm(2) ** 2
+
         with torch.no_grad():
             reduce_kl = not self.is_rnn
             kl_dist = torch_ext.policy_kl(mu.detach(), sigma.detach(), old_mu_batch, old_sigma_batch, reduce_kl)
@@ -297,6 +306,8 @@ class ASEAgent(amp_continuous.AMPAgent):
         self.train_result.update(c_info)
         self.train_result.update(disc_info)
         self.train_result.update(enc_info)
+        self.train_result['param_norm'] = param_norm.detach().cpu()
+        self.train_result['gradient_norm'] = gradient_norm.detach().cpu()
 
         return
 
@@ -502,6 +513,9 @@ class ASEAgent(amp_continuous.AMPAgent):
 
         if (self._enable_enc_grad_penalty()):
             self.writer.add_scalar('info/enc_grad_penalty', torch_ext.mean_list(train_info['enc_grad_penalty']).item(), frame)
+
+        self.writer.add_scalar('debug/param_norm', torch_ext.mean_list(train_info['param_norm']))
+        self.writer.add_scalar('debug/gradient_norm', torch_ext.mean_list(train_info['gradient_norm']))
 
         return
 
