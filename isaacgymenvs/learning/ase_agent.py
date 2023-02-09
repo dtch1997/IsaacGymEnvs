@@ -514,9 +514,6 @@ class ASEAgent(amp_continuous.AMPAgent):
         if (self._enable_enc_grad_penalty()):
             self.writer.add_scalar('info/enc_grad_penalty', torch_ext.mean_list(train_info['enc_grad_penalty']).item(), frame)
 
-        self.writer.add_scalar('debug/param_norm', torch_ext.mean_list(train_info['param_norm']))
-        self.writer.add_scalar('debug/gradient_norm', torch_ext.mean_list(train_info['gradient_norm']))
-
         return
 
     ### Visualization ### 
