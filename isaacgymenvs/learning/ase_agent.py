@@ -309,6 +309,16 @@ class ASEAgent(amp_continuous.AMPAgent):
         self.train_result['param_norm'] = param_norm.detach().cpu()
         self.train_result['gradient_norm'] = gradient_norm.detach().cpu()
 
+        # Record the value standardization for debugging
+        if self.normalize_value:
+            # Assume RunningMeanStd()
+            running_mean = self.value_mean_std._buffers['running_mean']
+            running_var = self.value_mean_std._buffers['running_var']
+            count = self.value_mean_std._buffers['count']
+            self.train_result['value_running_mean'] = running_mean.cpu() 
+            self.train_result['value_running_var'] = running_var.cpu()
+            self.train_result['value_count'] = count.cpu()
+
         return
 
     def _env_reset_done(self):
