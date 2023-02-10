@@ -507,6 +507,7 @@ class ASEAgent(amp_continuous.AMPAgent):
     def _record_train_batch_info(self, batch_dict, train_info):
         super()._record_train_batch_info(batch_dict, train_info)
         train_info['enc_rewards'] = batch_dict['enc_rewards']
+        train_info['ase_latents'] = batch_dict['ase_latents']
         return
 
     def _log_train_info(self, train_info, frame):
@@ -523,6 +524,9 @@ class ASEAgent(amp_continuous.AMPAgent):
 
         if (self._enable_enc_grad_penalty()):
             self.writer.add_scalar('info/enc_grad_penalty', torch_ext.mean_list(train_info['enc_grad_penalty']).item(), frame)
+        ase_latents = train_info['ase_latents']
+        self.writer.add_scalar('debug/ase_latents_max', ase_latents.max())
+        self.writer.add_scalar('debug/ase_latents_min', ase_latents.min())
 
         return
 
