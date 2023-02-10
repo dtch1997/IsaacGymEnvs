@@ -156,10 +156,6 @@ class ASEAgent(amp_continuous.AMPAgent):
                 }
                 value = self.get_central_value(input_dict)
                 res_dict['values'] = value
-
-        if self.normalize_value:
-            res_dict['values'] = self.value_mean_std(res_dict['values'], True)
-
         return res_dict
 
     def prepare_dataset(self, batch_dict):
