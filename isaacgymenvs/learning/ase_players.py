@@ -91,6 +91,7 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
     def env_reset(self, env):
         obs = super().env_reset(env)
         # TODO: How to reset the latent on done?
+        # For now we just rely on the time-based reset based on `self._latent_step_count`
         return obs
     
     def _build_net_config(self):
@@ -178,6 +179,5 @@ class ASEPlayer(amp_players.AMPPlayerContinuous):
         rand_col = np.random.uniform(0.0, 1.0, size=3)
         rand_col = range_sum * rand_col / np.linalg.norm(rand_col)
         rand_col += base_col
-        # TODO: Implement character color change?
-        # self.env.set_char_color(rand_col, env_ids)
+        self.env.set_char_color(rand_col, env_ids)
         return

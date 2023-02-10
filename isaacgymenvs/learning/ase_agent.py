@@ -533,9 +533,6 @@ class ASEAgent(amp_continuous.AMPAgent):
     ### Visualization ### 
 
     def _change_char_color(self, env_ids):
-        # TODO: Implement char color changes
-        return
-        
         base_col = np.array([0.4, 0.4, 0.4])
         range_col = np.array([0.0706, 0.149, 0.2863])
         range_sum = np.linalg.norm(range_col)
