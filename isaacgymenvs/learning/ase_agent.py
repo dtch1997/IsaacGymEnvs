@@ -399,7 +399,10 @@ class ASEAgent(amp_continuous.AMPAgent):
     def _eval_critic(self, obs_dict, ase_latents):
         self.model.eval()
         obs = obs_dict['obs']
+
         processed_obs = self._preproc_obs(obs)
+        if self.normalize_input:
+            processed_obs = self.model.norm_obs(processed_obs)
         value = self.model.a2c_network.eval_critic(processed_obs, ase_latents)
 
         if self.normalize_value:
