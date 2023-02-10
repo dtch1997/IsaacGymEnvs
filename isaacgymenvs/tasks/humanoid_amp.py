@@ -70,7 +70,7 @@ class HumanoidAMP(HumanoidAMPBase):
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
         motion_file = cfg['env'].get('motion_file', "amp_humanoid_backflip.npy")
-        motion_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets/amp/motions/" + motion_file)
+        motion_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../" + motion_file)
         self._load_motion(motion_file_path)
 
         self.num_amp_obs = self._num_amp_obs_steps * NUM_AMP_OBS_PER_STEP
