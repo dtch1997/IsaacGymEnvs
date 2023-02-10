@@ -99,7 +99,7 @@ params:
     normalize_amp_input: True
 
     task_reward_w: 0.0
-    disc_reward_w: 1.0
+    disc_reward_w: 0.5
 
     # ASE-specific
     latent_dim: 64
