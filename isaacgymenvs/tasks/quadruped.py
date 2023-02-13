@@ -142,6 +142,7 @@ class Quadruped(VecTask):
         self.initial_root_states[:] = to_torch(self.base_init_state, device=self.device, requires_grad=False)
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self._build_pd_action_offset_scale()
 
     def create_sim(self):
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
@@ -314,6 +315,10 @@ class Quadruped(VecTask):
 
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+
+    def _action_to_pd_targets(self, action):
+        pd_tar = self._pd_action_offset + self._pd_action_scale * action
+        return pd_tar
 
     def _build_pd_action_offset_scale(self):
         num_joints = 12
