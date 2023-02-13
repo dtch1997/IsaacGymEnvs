@@ -198,10 +198,20 @@ class Quadruped(VecTask):
         self.base_index = 0
 
         dof_props = self.gym.get_asset_dof_properties(anymal_asset)
+        self.dof_limits_lower = []
+        self.dof_limits_upper = []
         for i in range(self.num_dof):
             dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
             dof_props['stiffness'][i] = self.cfg["env"]["control"]["stiffness"] #self.Kp
             dof_props['damping'][i] = self.cfg["env"]["control"]["damping"] #self.Kd
+            if dof_props['lower'][i] > dof_props['upper'][i]:
+                self.dof_limits_lower.append(dof_props['upper'][i])
+                self.dof_limits_upper.append(dof_props['lower'][i])
+            else:
+                self.dof_limits_lower.append(dof_props['lower'][i])
+                self.dof_limits_upper.append(dof_props['upper'][i])
+        self.dof_limits_lower = to_torch(self.dof_limits_lower, device=self.device)
+        self.dof_limits_upper = to_torch(self.dof_limits_upper, device=self.device)
 
         env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
@@ -226,8 +236,9 @@ class Quadruped(VecTask):
 
     def pre_physics_step(self, actions):
         self.actions = actions.clone().to(self.device)
-        targets = self.action_scale * self.actions + self.default_dof_pos
-        self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(targets))
+        pd_tar = self._action_to_pd_targets(self.actions)
+        pd_tar_tensor = gymtorch.unwrap_tensor(pd_tar)
+        self.gym.set_dof_position_target_tensor(self.sim, pd_tar_tensor)
 
     def post_physics_step(self):
         self.progress_buf += 1
@@ -303,6 +314,33 @@ class Quadruped(VecTask):
 
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+
+    def _build_pd_action_offset_scale(self):
+        num_joints = 12
+        
+        lim_low = self.dof_limits_lower.cpu().numpy()
+        lim_high = self.dof_limits_upper.cpu().numpy()
+
+        for dof_offset in range(num_joints):
+            curr_low = lim_low[dof_offset]
+            curr_high = lim_high[dof_offset]
+            curr_mid = 0.5 * (curr_high + curr_low)
+            
+            # extend the action range to be a bit beyond the joint limits so that the motors
+            # don't lose their strength as they approach the joint limits
+            curr_scale = 0.7 * (curr_high - curr_low)
+            curr_low = curr_mid - curr_scale
+            curr_high = curr_mid + curr_scale
+
+            lim_low[dof_offset] = curr_low
+            lim_high[dof_offset] =  curr_high
+
+        self._pd_action_offset = 0.5 * (lim_high + lim_low)
+        self._pd_action_scale = 0.5 * (lim_high - lim_low)
+        self._pd_action_offset = to_torch(self._pd_action_offset, device=self.device)
+        self._pd_action_scale = to_torch(self._pd_action_scale, device=self.device)
+
+        return
 
 #####################################################################
 ###=========================jit functions=========================###
