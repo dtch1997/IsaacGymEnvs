@@ -169,6 +169,8 @@ def launch_rlg_hydra(cfg: DictConfig):
     })
 
     if cfg.wandb_activate and rank == 0:
+        # Enable wandb saving for all algorithms
+        wandb.save(f'runs/{cfg.task_name}/nn/{cfg.task_name}.pth')
         wandb.finish()
 
 if __name__ == "__main__":
