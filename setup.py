@@ -14,13 +14,16 @@ root_dir = os.path.dirname(os.path.realpath(__file__))
 # Minimum dependencies required prior to installation
 INSTALL_REQUIRES = [
     # RL
-    "gym==0.24.1",
+    "gym==0.23.1",
+    "pybullet",
     "torch",
     "omegaconf",
     "termcolor",
     "hydra-core>=1.1",
     "rl-games==1.5.2",
-    "pyvirtualdisplay",
+    # Development
+    "ipykernel",
+    "matplotlib"
     ]
 
 

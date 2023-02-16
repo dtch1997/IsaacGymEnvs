@@ -348,6 +348,15 @@ class AMPAgent(common_agent.CommonAgent):
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
+        # Record the model parameter norm and gradient norm for debugging
+        param_norm = 0
+        gradient_norm = 0
+        for param in self.model.parameters():
+            if not param.requires_grad or (param.grad is None):
+                continue
+            gradient_norm += param.grad.detach().data.norm(2) ** 2
+            param_norm += param.detach().data.norm(2) ** 2
+
         with torch.no_grad():
             reduce_kl = not self.is_rnn
             kl_dist = torch_ext.policy_kl(mu.detach(), sigma.detach(), old_mu_batch, old_sigma_batch, reduce_kl)
@@ -364,6 +373,18 @@ class AMPAgent(common_agent.CommonAgent):
         self.train_result.update(a_info)
         self.train_result.update(c_info)
         self.train_result.update(disc_info)
+        self.train_result['param_norm'] = param_norm.detach().cpu()
+        self.train_result['gradient_norm'] = gradient_norm.detach().cpu()
+
+        # Record the value standardization for debugging
+        if self.normalize_value:
+            # Assume RunningMeanStd()
+            running_mean = self.value_mean_std._buffers['running_mean']
+            running_var = self.value_mean_std._buffers['running_var']
+            count = self.value_mean_std._buffers['count']
+            self.train_result['value_running_mean'] = running_mean.cpu() 
+            self.train_result['value_running_var'] = running_var.cpu()
+            self.train_result['value_count'] = count.cpu()
 
         return
 
@@ -529,6 +550,9 @@ class AMPAgent(common_agent.CommonAgent):
 
     def _record_train_batch_info(self, batch_dict, train_info):
         train_info['disc_rewards'] = batch_dict['disc_rewards']
+        train_info['values'] = batch_dict['values']
+        train_info['obses'] = batch_dict['obses']
+        train_info['amp_obs'] = batch_dict['amp_obs']
         return
 
     def _log_train_info(self, train_info, frame):
@@ -546,6 +570,23 @@ class AMPAgent(common_agent.CommonAgent):
         disc_reward_std, disc_reward_mean = torch.std_mean(train_info['disc_rewards'])
         self.writer.add_scalar('info/disc_reward_mean', disc_reward_mean.item(), frame)
         self.writer.add_scalar('info/disc_reward_std', disc_reward_std.item(), frame)
+
+        self.writer.add_scalar('debug/param_norm', torch_ext.mean_list(train_info['param_norm']))
+        self.writer.add_scalar('debug/gradient_norm', torch_ext.mean_list(train_info['gradient_norm']))
+        value_std, value_mean = torch.std_mean(train_info['values'])
+        self.writer.add_scalar('debug/value_std', value_std.item())
+        self.writer.add_scalar('debug/value_mean', value_mean.item())
+        if self.normalize_value:
+            self.writer.add_scalar('debug/value_running_mean', torch_ext.mean_list(train_info['value_running_mean']))
+            self.writer.add_scalar('debug/value_running_var', torch_ext.mean_list(train_info['value_running_var']))
+            self.writer.add_scalar('debug/value_count', torch_ext.mean_list(train_info['value_count']))
+
+        obs = train_info['obses']
+        amp_obs = train_info['amp_obs']
+        self.writer.add_scalar('debug/obs_max', obs.max())
+        self.writer.add_scalar('debug/obs_min', obs.min())
+        self.writer.add_scalar('debug/amp_obs_max', amp_obs.max())
+        self.writer.add_scalar('debug/amp_obs_min', amp_obs.min())
         return
 
     def _amp_debug(self, info):
