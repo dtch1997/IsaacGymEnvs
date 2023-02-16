@@ -11,6 +11,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Convert a1_expert_raw to desired format")
     parser.add_argument("--input-filepath", type=str)
     parser.add_argument("--output-filepath", type=str)
+    parser.add_argument("-s", "--start-time-frac", type=float, help="Start time as a fraction. E.g. 0.2 = start from 20% of the way in", default = 0.0)
+    parser.add_argument("-e", "--end-time-frac", type=float, help="End time as a fraction. E.g. 0.8 = end at 80% of the way in", default = 1.0)
     args = parser.parse_args()
     return args
 
@@ -58,4 +60,7 @@ def write_motion_data(filepath: str, frames: np.ndarray, dt: float, loop_mode: s
 if __name__ == "__main__":
     args = parse_args()
     frame_data, dt = parse_mocap_data(args.input_filepath)
-    write_motion_data(args.output_filepath, frame_data, dt, loop_mode='Clamp')
+    n_timesteps = frame_data.shape[0]
+    start_time = int(n_timesteps * args.start_time_frac)
+    end_time = int(n_timesteps * args.end_time_frac)
+    write_motion_data(args.output_filepath, frame_data[start_time: end_time], dt, loop_mode='Clamp')
