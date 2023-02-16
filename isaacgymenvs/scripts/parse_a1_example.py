@@ -1,7 +1,7 @@
 import argparse
 import isaacgym
 import torch
-from isaacgymenvs.tasks.quadruped_motion_data import MotionLib
+from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
 
 from typing import Dict, Tuple
 import numpy as np 

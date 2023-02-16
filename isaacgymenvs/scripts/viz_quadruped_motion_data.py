@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt 
 
-from isaacgymenvs.tasks.quadruped_motion_data import MotionData, MotionLib
+from isaacgymenvs.utilities.quadruped_motion_data import MotionData, MotionLib
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Visualize quadruped motion data")
