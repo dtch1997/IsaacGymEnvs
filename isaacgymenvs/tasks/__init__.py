@@ -48,6 +48,7 @@ from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
 from .quadruped import Quadruped
 from .quadruped_amp import QuadrupedAMP
+from .quadruped_getup import QuadrupedGetup
 
 # Mappings from strings to environments
 isaacgym_task_map = {
@@ -70,6 +71,7 @@ isaacgym_task_map = {
     "Quadcopter": Quadcopter,
     "Quadruped": Quadruped, 
     "QuadrupedAMP": QuadrupedAMP,
+    "QuadrupedGetup": QuadrupedGetup,
     "ShadowHand": ShadowHand,
     "Trifinger": Trifinger,
 }

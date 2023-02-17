@@ -15,6 +15,9 @@ from isaacgymenvs.utils.torch_jit_utils import *
 
 from typing import Tuple, Dict
 
+def random_uniform(lower, upper, device):
+    return (upper - lower) * torch.rand_like(upper, device=device)
+
 def random_uniform_quaternion(n: int, device) -> torch.Tensor:
     """
     Reference: Top answer to https://stackoverflow.com/questions/31600717/how-to-generate-a-random-quaternion-quickly
@@ -46,7 +49,7 @@ class QuadrupedGetup(QuadrupedAMPBase):
             self.apply_randomizations(self.randomization_params)
 
 
-        self.dof_pos[env_ids] = torch.zeros_like(self.default_dof_pos).uniform_(self.dof_limits_lower, self.dof_limits_upper)
+        self.dof_pos[env_ids] = random_uniform(self.dof_limits_lower, self.dof_limits_upper, device=self.device)
         self.dof_vel[env_ids] = torch.zeros_like(self.default_dof_vel).uniform_(-0.2, 0.2) # m/s
         root_h = torch.zeros_like(self.initial_root_states[:,2]).uniform_(0.2, 0.8) # m
         root_orn = random_uniform_quaternion(self.initial_root_states.shape[0], device=self.device)
@@ -83,7 +86,6 @@ class QuadrupedGetup(QuadrupedAMPBase):
             self.progress_buf,
             self._terminate_buf,
             self.root_states, 
-            self.contact_forces,
             self.max_episode_length, 
             self.target_height,
             self.target_height_diff_eps,
@@ -97,7 +99,7 @@ class QuadrupedGetup(QuadrupedAMPBase):
 
 @torch.jit.script
 def compute_getup_reward(root_states, target_height):
-    # type: (Tensor, Tensor) -> Tensor
+    # type: (Tensor, float) -> Tensor
     body_height = root_states[:, 2]
     reward = torch.exp(-(body_height - target_height)**2)
     return reward
