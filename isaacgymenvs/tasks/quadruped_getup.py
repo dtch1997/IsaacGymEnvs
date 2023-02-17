@@ -51,15 +51,15 @@ class QuadrupedGetup(QuadrupedAMPBase):
 
         self.dof_pos[env_ids] = random_uniform(self.dof_limits_lower, self.dof_limits_upper, device=self.device)
         self.dof_vel[env_ids] = torch.zeros_like(self.default_dof_vel).uniform_(-0.2, 0.2) # m/s
-        root_h = torch.zeros_like(self.initial_root_states[:,2]).uniform_(0.2, 0.8) # m
-        root_orn = random_uniform_quaternion(self.initial_root_states.shape[0], device=self.device)
-        root_lin_vel = torch.zeros_like(self.initial_root_states[:,7:10]).uniform_(-0.1, 0.1)
-        root_ang_vel = torch.zeros_like(self.initial_root_states[:,10:13]).uniform_(-0.1, 0.1)
+        root_h = torch.zeros_like(self.initial_root_states[env_ids,2]).uniform_(0.2, 0.8) # m
+        root_orn = random_uniform_quaternion(len(env_ids), device=self.device)
+        root_lin_vel = torch.zeros_like(self.initial_root_states[env_ids,7:10]).uniform_(-0.1, 0.1)
+        root_ang_vel = torch.zeros_like(self.initial_root_states[env_ids,10:13]).uniform_(-0.1, 0.1)
 
-        self.initial_root_states[:,2] = root_h
-        self.initial_root_states[:,3:7] = root_orn 
-        self.initial_root_states[:,7:10] = root_lin_vel
-        self.initial_root_states[:,10:13] = root_ang_vel
+        self.initial_root_states[env_ids,2] = root_h
+        self.initial_root_states[env_ids,3:7] = root_orn 
+        self.initial_root_states[env_ids,7:10] = root_lin_vel
+        self.initial_root_states[env_ids,10:13] = root_ang_vel
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
