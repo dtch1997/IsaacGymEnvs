@@ -82,9 +82,10 @@ class QuadrupedGetup(QuadrupedAMPBase):
         )
 
     def compute_reset(self):
+        
         self.reset_buf, self._terminate_buf = compute_getup_reset(
+            self.reset_buf,
             self.progress_buf,
-            self._terminate_buf,
             self.root_states, 
             self.max_episode_length, 
             self.target_height,
