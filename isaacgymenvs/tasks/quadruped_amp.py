@@ -269,9 +269,9 @@ class QuadrupedAMP(QuadrupedAMPBase):
         if (len(ref_reset_ids) > 0):
             self._reset_ref_state_init(ref_reset_ids)
 
-        default_reset_ids = env_ids[torch.logical_not(ref_init_mask)]
-        if (len(default_reset_ids) > 0):
-            self._reset_default(default_reset_ids)
+        random_pose_reset_ids = env_ids[torch.logical_not(ref_init_mask)]
+        if (len(random_pose_reset_ids) > 0):
+            self._reset_random_pose(random_pose_reset_ids)
 
         return
 
