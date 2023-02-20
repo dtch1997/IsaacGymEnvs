@@ -365,12 +365,12 @@ class QuadrupedAMP(QuadrupedAMPBase):
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel \
                = self._motion_lib.get_motion_state([motion_id], [motion_time])
         # Sync orientation with actor 0
-        root_rot_0 = self.reset_root_states[0:1, 3:7]
-        root_rot = quat_mul(root_rot, root_rot_0)
-        root_pos[-1] = my_quat_rotate(root_rot_0, root_pos)
+        # root_rot_0 = self.reset_root_states[0:1, 3:7]
+        # root_rot = quat_mul(root_rot, root_rot_0)
+        # root_pos[-1] = my_quat_rotate(root_rot_0, root_pos)
         # Sync position with actor 0
         root_pos[-1, :2] += self.reset_root_states[0, :2]
-        root_pos[-1, 2] = self.reset_root_states[0, 2] 
+        # root_pos[-1, 2] = self.reset_root_states[0, 2] 
         # Add forward offset for visibility
         root_pos[-1, 0] += 0.7
 
