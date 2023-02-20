@@ -244,10 +244,10 @@ class QuadrupedAMP(QuadrupedAMPBase):
         # TODO: Undo hardcoding of various constants
         num_envs = len(env_ids)
         dof_pos = random_uniform(num_envs, self.dof_limits_lower, self.dof_limits_upper, device=self.device)
-        dof_vel = torch.zeros_like(self.default_dof_vel).uniform_(-0.2, 0.2) # m/s
+        dof_vel = torch.zeros_like(self.default_dof_vel[env_ids]).uniform_(-0.2, 0.2) # m/s
         root_pos = self.initial_root_states[env_ids,:3].clone()
         root_pos[:,2] = torch.zeros_like(self.initial_root_states[env_ids,2]).uniform_(0.6, 1.2) # m
-        root_rot = random_uniform_quaternion(len(env_ids), device=self.device)
+        root_rot = random_uniform_quaternion(num_envs, device=self.device)
         root_vel = torch.zeros_like(self.initial_root_states[env_ids,7:10]).uniform_(-0.1, 0.1)
         root_ang_vel = torch.zeros_like(self.initial_root_states[env_ids,10:13]).uniform_(-0.1, 0.1)
 
