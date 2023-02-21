@@ -149,10 +149,10 @@ class HumanoidAMPBase(VecTask):
         self._compute_observations(env_ids)
         return
 
-    def set_char_color(self, col):
-        for i in range(self.num_envs):
-            env_ptr = self.envs[i]
-            handle = self.humanoid_handles[i]
+    def set_char_color(self, col, env_ids):
+        for env_id in env_ids:
+            env_ptr = self.envs[env_id]
+            handle = self.humanoid_handles[env_id]
 
             for j in range(self.num_bodies):
                 self.gym.set_rigid_body_color(env_ptr, handle, j, gymapi.MESH_VISUAL,
