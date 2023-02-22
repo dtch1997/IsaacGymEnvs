@@ -54,11 +54,11 @@ if sim is None:
 
 # load A1 asset
 asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, "assets")
-asset_file = "urdf/ball.urdf"
+asset_file = "urdf/a1.urdf"
 asset = gym.load_asset(sim, asset_root, asset_file, gymapi.AssetOptions())
 
 # set up the env grid
-num_envs = 800
+num_envs = 1
 num_per_row = 80
 env_spacing = 0.56
 env_lower = gymapi.Vec3(-env_spacing, -env_spacing, 0.0)
@@ -66,7 +66,7 @@ env_upper = gymapi.Vec3(env_spacing, env_spacing, env_spacing)
 pose = gymapi.Transform()
 pose.r = gymapi.Quat(0, 0, 0, 1)
 pose.p.z = 1.
-pose.p.x = 3.
+pose.p.x = 40.
 
 envs = []
 # set random seed
@@ -104,6 +104,23 @@ def new_sub_terrain(): return SubTerrain(width=num_rows, length=num_cols, vertic
 heightfield[0:num_rows, :] = platform_terrain(new_sub_terrain(), start_x =0.2, stop_x = 0.8, start_y=0.2, stop_y=0.8).height_field_raw
 heightfield[num_rows:2*num_rows, :] = platform_terrain(new_sub_terrain(), start_x =0.2, start_y=0.2, stop_y=0.8).height_field_raw
 heightfield[2*num_rows:3*num_rows,:] = ramp_terrain(new_sub_terrain(), start_y=0.2, stop_y=0.8, max_height=1).height_field_raw
+
+# Create movable box
+box_asset = gym.create_box(sim, 2.0, 2.0, 1.0)
+box_pose = gymapi.Transform()
+box_pose.p = gymapi.Vec3(10.0, 0.0, 2.0)
+box_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+box_handle = gym.create_actor(envs[-1], box_asset, box_pose, "box", 0, 1)
+
+box_asset = gym.create_box(sim, 0.2, 0.2, 0.2)
+box_pose = gymapi.Transform()
+box_pose.p = gymapi.Vec3(5.0, 5.0, 2.0)
+box_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+goal_handle = gym.create_actor(envs[-1], box_asset, box_pose, "box", 0, 1)
+# generate random bright color
+c = 0.5 + 0.5 * np.random.random(3)
+color = gymapi.Vec3(c[0], c[1], c[2])
+gym.set_rigid_body_color(env, goal_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
 
 # add the terrain as a triangle mesh
 vertices, triangles = convert_heightfield_to_trimesh(heightfield, horizontal_scale=horizontal_scale, vertical_scale=vertical_scale, slope_threshold=1.5)
