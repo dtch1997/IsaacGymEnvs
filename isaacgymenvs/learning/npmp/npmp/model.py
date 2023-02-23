@@ -5,9 +5,30 @@ import numpy as np
 
 class Encoder(nn.Module):
     """ q(z_t | z_{t-1}, x_t) """
-    
+    def __init__(self, state_dim: int, latent_dim: int, 
+                num_future_states: int = 1,
+                hidden_dim: int = 256):
+
+        self.state_dim = state_dim 
+        self.latent_dim = latent_dim 
+        self.num_future_states = num_future_states
+        self.hidden_dim = hidden_dim
+
+        self.net = nn.Sequential(
+            nn.Linear(state_dim * num_future_states + latent_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, latent_dim),
+            nn.Tanh(),
+        )
+
     def forward(self, ref_states: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
-        return self.net(torch.hstack([ref_states.flatten(), latent]))
+        """
+        ref_states: [batch, num_future_states, state_dim]
+        latent: [batch, latent_dim]
+        """
+        return self.net(torch.hstack([ref_states.flatten(-2, -1), latent]))
 
 class Actor(nn.Module):
     """ pi(a_t | s_t, z_t) """
