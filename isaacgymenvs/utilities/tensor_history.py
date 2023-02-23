@@ -91,3 +91,8 @@ class TensorIO:
         self.curr_size = end_idx
         self.dataset[start_idx: end_idx] = value
         self.dataset.attrs['size'] = self.curr_size
+
+        self._print_debug_info()
+
+    def _print_debug_info(self):
+        print(f"dataset: {self.dataset_name} | curr size: {self.curr_size}")
