@@ -4,31 +4,31 @@ import torch.nn as nn
 import numpy as np
 
 class Encoder(nn.Module):
-    """ q(z_t | z_{t-1}, x_t) """
+    """ q(z_t | s_t, x_t), following approach in CoMiC """
     def __init__(self, state_dim: int, latent_dim: int, 
                 num_future_states: int = 1,
                 hidden_dim: int = 256):
 
+        super(Encoder, self).__init__()
         self.state_dim = state_dim 
         self.latent_dim = latent_dim 
         self.num_future_states = num_future_states
         self.hidden_dim = hidden_dim
 
         self.net = nn.Sequential(
-            nn.Linear(state_dim * num_future_states + latent_dim, hidden_dim),
+            nn.Linear(state_dim * (num_future_states + 1), hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, latent_dim),
-            nn.Tanh(),
+            nn.Linear(hidden_dim, latent_dim)
         )
 
-    def forward(self, ref_states: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
+    def forward(self, ref_states: torch.Tensor, state: torch.Tensor) -> torch.Tensor:
         """
         ref_states: [batch, num_future_states, state_dim]
-        latent: [batch, latent_dim]
+        state: [batch, state_dim]
         """
-        return self.net(torch.hstack([ref_states.flatten(-2, -1), latent]))
+        return self.net(torch.cat([ref_states, state], dim=-1))
 
 class Actor(nn.Module):
     """ pi(a_t | s_t, z_t) """
@@ -46,7 +46,7 @@ class Actor(nn.Module):
         # Net returns outputs in [-1, 1]
 
     def forward(self, state: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
-        return self.net(torch.hstack([state, latent]))
+        return self.net(torch.cat([state, latent], dim=-1))
 
     @torch.no_grad()
     def act(self, state: np.ndarray, device: str = "cpu") -> np.ndarray:

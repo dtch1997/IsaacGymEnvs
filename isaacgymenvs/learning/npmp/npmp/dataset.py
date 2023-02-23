@@ -28,7 +28,7 @@ class NPMPDataset(Dataset):
         return self.file.attrs["max_episode_length"] - self.num_future_states - 1
 
     def _num_trajectories(self):
-        return self.file["root_states"].shape[0]
+        return self.dataset_size
 
     def __len__(self):
         return self._num_trajectories()
@@ -40,16 +40,15 @@ class NPMPDataset(Dataset):
         actions = self.actions[trajectory_idx, :]
         
         states = np.concatenate([root_states, dof_states], axis=-1)
-        s = states[:,:self._num_samples_per_trajectory()] # [b, T, s]
-        a = actions[:,:self._num_samples_per_trajectory()] # [b, T, a]
-        x = np.expand_dims(s, 2) # [b, T, 1, s]
-        x = np.tile(x, (1, 1, self.num_future_states, 1)) # [b, T, k, s]
+        s = states[:self._num_samples_per_trajectory()] # [T, s]
+        a = actions[:self._num_samples_per_trajectory()] # [T, a]
+        x = np.expand_dims(s, 1) # [T, 1, s]
+        x = np.tile(x, (1, self.num_future_states, 1)) # [T, k, s]
         
-        # breakpoint()
         for i in range(self.num_future_states):
-            x[:, :, i] = states[:, i + 1 : i + self._num_samples_per_trajectory() + 1]
+            x[:, i] = states[i + 1 : i + self._num_samples_per_trajectory() + 1]
         
-        return TensorDict({'state': s, 'action': a, 'future_state': x}, [])
+        return {'state': s, 'action': a, 'future_state': x}
 
 if __name__ == "__main__":
     # Do some debugging
@@ -60,7 +59,7 @@ if __name__ == "__main__":
     dataset = NPMPDataset(dataset_path, num_future_states = 4)
 
     print(len(dataset))
-    sample = dataset[:2]
+    sample = dataset[:10]
     print(list(sample.keys()))
     for k, v in sample.items():
         print(f"{k}: {v.shape}")
@@ -68,4 +67,4 @@ if __name__ == "__main__":
     # Simple sanity check
     s1 = sample['state'][0,1]
     s1_x = sample['future_state'][0][0, 0]
-    assert torch.all(s1 == s1_x)
+    assert np.all(s1 == s1_x)
