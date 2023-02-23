@@ -46,15 +46,17 @@ def plot_motion_data(ts, root_states, dof_states) -> plt.Axes:
 if __name__ == "__main__":
 
     args = parse_args()
-    dataset = h5py.File(args.filepath)
-    for name in dataset.keys():
+    file = h5py.File(args.filepath)
+    for key, value in file.attrs.items():
+        print(f"{key}: {value}")
+    for name in file.keys():
         print(name)
-        print(dataset[name].shape)
-        print(dataset[name].attrs['size'])
+        print(file[name].shape)
+        print(file[name].attrs['size'])
 
-    ts = np.arange(200) * 0.02
-    root_states = dataset['root_states'][0]
-    dof_states = dataset['dof_states'][0]
+    ts = np.arange(file.attrs['max_episode_length']) * file.attrs['dt']
+    root_states = file['root_states'][0]
+    dof_states = file['dof_states'][0]
     fig, ax = plot_motion_data(ts, root_states, dof_states)
     filename = pathlib.Path(args.filepath).stem
     fig.suptitle(filename, size=30)

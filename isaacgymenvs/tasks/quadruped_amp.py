@@ -111,19 +111,23 @@ class QuadrupedAMP(QuadrupedAMPBase):
                 tensor_shape = (self.max_episode_length,) + self.root_states.shape[1:], 
                 dataset_name = 'root_states'
             )            
+            h5_file = self._root_states_io.file
             self._actions_hist = TensorHistory(self.max_episode_length, self.actions.shape, dtype=self.actions.dtype, device=self.device)
             self._actions_io = TensorIO(
-                file = self._root_states_io.file, 
+                file = h5_file, 
                 tensor_shape = (self.max_episode_length,) + self.actions.shape[1:], 
                 dataset_name = 'actions'
             )
             dof_state_shape = (self.num_envs, self.num_dof * 2)
             self._dof_states_hist = TensorHistory(self.max_episode_length, dof_state_shape, dtype=self.dof_state.dtype, device=self.device)
             self._dof_states_io = TensorIO(
-                file = self._root_states_io.file, 
+                file = h5_file, 
                 tensor_shape = (self.max_episode_length,) + dof_state_shape[1:],
                 dataset_name = 'dof_states'
-            )  
+            )
+            # Log some additional metadata
+            h5_file.attrs['dt'] = self.dt 
+            h5_file.attrs['max_episode_length'] = self.max_episode_length
 
     def post_physics_step(self):
         super().post_physics_step()

@@ -90,7 +90,7 @@ env:
 
   logging:
     enableTensorLogging: False
-    loggingFilePath: dataset.hdf5
+    loggingFilePath: dataset.h5
 
 sim:
   dt: 0.02
