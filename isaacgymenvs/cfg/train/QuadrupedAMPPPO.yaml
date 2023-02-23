@@ -45,6 +45,7 @@ params:
 
   config:
     player:
+      games_num: 16384
       determenistic: True
     name: ${resolve_default:QuadrupedAMP,${....experiment}}
     full_experiment_name: ${.name}
