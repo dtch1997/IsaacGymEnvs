@@ -117,6 +117,13 @@ class QuadrupedAMP(QuadrupedAMPBase):
                 tensor_shape = (self.max_episode_length,) + self.actions.shape[1:], 
                 dataset_name = 'actions'
             )
+            dof_state_shape = (self.num_envs, self.num_dof * 2)
+            self._dof_states_hist = TensorHistory(self.max_episode_length, dof_state_shape, dtype=self.dof_state.dtype, device=self.device)
+            self._dof_states_io = TensorIO(
+                file = self._root_states_io.file, 
+                tensor_shape = (self.max_episode_length,) + dof_state_shape[1:],
+                dataset_name = 'dof_states'
+            )  
 
     def post_physics_step(self):
         super().post_physics_step()
@@ -128,6 +135,7 @@ class QuadrupedAMP(QuadrupedAMPBase):
         self.extras["amp_obs"] = amp_obs_flat
         self._root_states_hist.update(self.root_states)
         self._actions_hist.update(self.actions)
+        self._dof_states_hist.update(torch.hstack([self.dof_pos, self.dof_vel]))
 
         return
 
@@ -192,8 +200,14 @@ class QuadrupedAMP(QuadrupedAMPBase):
             actions_history = self._actions_hist.get_history()
             actions_history = torch.transpose(actions_history, 0, 1)
             self._actions_io.write(actions_history.detach().cpu().numpy())
+
+            dof_state_history = self._dof_states_hist.get_history()
+            dof_state_history = torch.transpose(dof_state_history, 0, 1)
+            self._dof_states_io.write(dof_state_history.detach().cpu().numpy())
+
         self._root_states_hist.clear()
         self._actions_hist.clear()
+        self._dof_states_hist.clear()
         return
 
     def _reset_actors(self, env_ids):

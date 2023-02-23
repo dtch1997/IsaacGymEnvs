@@ -14,8 +14,8 @@ def line_plot(ax: plt.Axes, x: np.ndarray, y: np.ndarray, title: str, fontsize: 
     ax.plot(x, y)
     ax.set_title(title, size= fontsize)
 
-def plot_motion_data(ts, root_states) -> plt.Axes:
-    fig, ax = plt.subplots(2, 2, figsize=(30, 20))
+def plot_motion_data(ts, root_states, dof_states) -> plt.Axes:
+    fig, ax = plt.subplots(2, 3, figsize=(40, 20))
 
     # Body pos 
     body_pos = root_states[:, :3]
@@ -26,8 +26,8 @@ def plot_motion_data(ts, root_states) -> plt.Axes:
     line_plot(ax[0][1], ts, body_orn, title="Body Orn")
 
     # Dof pos
-    # dof_pos = root_states[:, 7:10]
-    # line_plot(ax[0][2], ts, dof_pos, title="Dof Pos")
+    dof_pos = dof_states[:, :12]
+    line_plot(ax[0][2], ts, dof_pos, title="Dof Pos")
 
     # Body ang vel
     body_lin_vel = root_states[:, 10:]
@@ -38,8 +38,8 @@ def plot_motion_data(ts, root_states) -> plt.Axes:
     line_plot(ax[1][1], ts, body_ang_vel, title="Body Ang Vel")
 
     # Dof vel
-    # dof_vel = frame_vels[:, 6:]
-    # line_plot(ax[1][2], ts, dof_vel, title="Dof Vel") 
+    dof_vel = dof_states[:, 12:]
+    line_plot(ax[1][2], ts, dof_vel, title="Dof Vel") 
 
     return fig, ax 
 
@@ -47,13 +47,15 @@ if __name__ == "__main__":
 
     args = parse_args()
     dataset = h5py.File(args.filepath)
-    print(dataset['root_states'].shape)
-    print(dataset['root_states'].attrs['size'])
-    print(dataset['actions'].shape)
-    print(dataset['actions'].attrs['size'])
+    for name in dataset.keys():
+        print(name)
+        print(dataset[name].shape)
+        print(dataset[name].attrs['size'])
 
     ts = np.arange(200) * 0.02
-    fig, ax = plot_motion_data(ts, dataset['root_states'][0])
+    root_states = dataset['root_states'][0]
+    dof_states = dataset['dof_states'][0]
+    fig, ax = plot_motion_data(ts, root_states, dof_states)
     filename = pathlib.Path(args.filepath).stem
     fig.suptitle(filename, size=30)
     fig.show()    
