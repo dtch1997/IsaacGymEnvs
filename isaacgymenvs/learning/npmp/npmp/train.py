@@ -86,5 +86,11 @@ if __name__ == "__main__":
     dataset_path = root_dir / 'data' / 'dataset_small.h5'
     datamodule = BCDataModule(dataset_path, num_future_states, batch_size=batch_size)
 
-    trainer = pl.Trainer(limit_train_batches=100, max_epochs=1)
+    from pytorch_lightning.loggers import WandbLogger
+    wandb_logger = WandbLogger(
+        project='QuadrupedASE',
+        group='CoMiC',
+        name='comic_bc',
+    )
+    trainer = pl.Trainer(max_epochs=1, logger=wandb_logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
