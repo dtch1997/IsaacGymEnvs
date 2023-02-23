@@ -1,0 +1,2 @@
+
+- `dataset_small.pth`: 16384 episodes, each lasting 200 timesteps = 4s, initialized 80% of the time from random states in `dataset_locomotion_recovery.yaml` and the other 20% of the time from a random pose
