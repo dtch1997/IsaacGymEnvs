@@ -88,6 +88,10 @@ env:
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False
 
+  logging:
+    enableTensorLogging: True
+    loggingFilePath: dataset.hdf5
+
 sim:
   dt: 0.02
   substeps: 2

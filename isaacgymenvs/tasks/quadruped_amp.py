@@ -101,8 +101,12 @@ class QuadrupedAMP(QuadrupedAMPBase):
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
 
         self._amp_obs_demo_buf = None
-        self._root_states_hist = TensorHistory(self.max_episode_length, self.root_states.shape[1:], dtype=self.root_states.dtype, device=self.device)
-        self._root_states_io = TensorIO('dataset.hdf5', self.root_states.shape[1:], 'root_states')
+
+        self.enable_logging = self.cfg["env"]["logging"]["enableTensorLogging"]
+        if self.enable_logging:
+            self.logging_filepath = self.cfg["env"]["logging"]["loggingFilePath"]
+            self._root_states_hist = TensorHistory(self.max_episode_length, self.root_states.shape[1:], dtype=self.root_states.dtype, device=self.device)
+            self._root_states_io = TensorIO(self.logging_filepath, self.root_states.shape[1:], 'root_states')
 
     def post_physics_step(self):
         super().post_physics_step()
