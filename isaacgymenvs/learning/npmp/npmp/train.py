@@ -62,6 +62,34 @@ class BehaviourCloning(pl.LightningModule):
         self.log("info/train_loss", loss)
         return loss
 
+    def validation_step(self, batch, batch_idx):
+        # this is the validation loop
+        s = batch['state'] # [b, T, s_dim]
+        a_true = batch['action'] # [b, T, a_dim]
+        x = batch['future_state'] # [b, T, k, s_dim]
+        x = x.flatten(start_dim = -2, end_dim=-1)
+
+        z = self.encoder(x, s)
+        a_pred = self.actor(s, z)
+
+        loss = nn.functional.mse_loss(a_pred, a_true)
+        self.log("info/val_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # this is the validation loop
+        s = batch['state'] # [b, T, s_dim]
+        a_true = batch['action'] # [b, T, a_dim]
+        x = batch['future_state'] # [b, T, k, s_dim]
+        x = x.flatten(start_dim = -2, end_dim=-1)
+
+        z = self.encoder(x, s)
+        a_pred = self.actor(s, z)
+
+        loss = nn.functional.mse_loss(a_pred, a_true)
+        self.log("info/test_loss", loss)
+        return loss
+
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
@@ -94,3 +122,4 @@ if __name__ == "__main__":
     )
     trainer = pl.Trainer(max_epochs=1, logger=wandb_logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
+    trainer.test(model=bc_module, datamodule = datamodule)
