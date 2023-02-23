@@ -17,9 +17,9 @@ class Encoder(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(state_dim * (num_future_states + 1), hidden_dim),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(hidden_dim, latent_dim)
         )
 
@@ -37,9 +37,9 @@ class Actor(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(state_dim + latent_dim, hidden_dim),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(hidden_dim, action_dim),
             nn.Tanh(),
         )
