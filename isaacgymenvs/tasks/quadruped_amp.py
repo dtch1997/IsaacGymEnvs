@@ -193,7 +193,10 @@ class QuadrupedAMP(QuadrupedAMPBase):
         super().reset_idx(env_ids)
         self._init_amp_obs(env_ids)
         
-        if self.enable_logging:
+        if self.enable_logging and len(env_ids) > 0:
+            # TODO: Make this work with early termination
+            # by logging only for the env_ids that were reset
+            assert not self._enable_early_termination
             if len(self._root_states_hist) > 0:
                 root_states_history = self._root_states_hist.get_history()
                 # root_states_history comes in shape [max_ep_len, num_envs, root_state_dim]
