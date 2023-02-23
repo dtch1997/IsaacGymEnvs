@@ -133,9 +133,11 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
-        self._root_states_hist.update(self.root_states)
-        self._actions_hist.update(self.actions)
-        self._dof_states_hist.update(torch.hstack([self.dof_pos, self.dof_vel]))
+
+        if self.enable_logging:
+            self._root_states_hist.update(self.root_states)
+            self._actions_hist.update(self.actions)
+            self._dof_states_hist.update(torch.hstack([self.dof_pos, self.dof_vel]))
 
         return
 
@@ -190,24 +192,27 @@ class QuadrupedAMP(QuadrupedAMPBase):
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         self._init_amp_obs(env_ids)
-        if len(self._root_states_hist) > 0:
-            root_states_history = self._root_states_hist.get_history()
-            # root_states_history comes in shape [max_ep_len, num_envs, root_state_dim]
-            # we want to transpose it to [num_envs, max_ep_len, root_state_dim]
-            root_states_history = torch.transpose(root_states_history, 0, 1)
-            self._root_states_io.write(root_states_history.detach().cpu().numpy())
+        
+        if self.enable_logging:
+            if len(self._root_states_hist) > 0:
+                root_states_history = self._root_states_hist.get_history()
+                # root_states_history comes in shape [max_ep_len, num_envs, root_state_dim]
+                # we want to transpose it to [num_envs, max_ep_len, root_state_dim]
+                root_states_history = torch.transpose(root_states_history, 0, 1)
+                self._root_states_io.write(root_states_history.detach().cpu().numpy())
 
-            actions_history = self._actions_hist.get_history()
-            actions_history = torch.transpose(actions_history, 0, 1)
-            self._actions_io.write(actions_history.detach().cpu().numpy())
+                actions_history = self._actions_hist.get_history()
+                actions_history = torch.transpose(actions_history, 0, 1)
+                self._actions_io.write(actions_history.detach().cpu().numpy())
 
-            dof_state_history = self._dof_states_hist.get_history()
-            dof_state_history = torch.transpose(dof_state_history, 0, 1)
-            self._dof_states_io.write(dof_state_history.detach().cpu().numpy())
+                dof_state_history = self._dof_states_hist.get_history()
+                dof_state_history = torch.transpose(dof_state_history, 0, 1)
+                self._dof_states_io.write(dof_state_history.detach().cpu().numpy())
 
-        self._root_states_hist.clear()
-        self._actions_hist.clear()
-        self._dof_states_hist.clear()
+            self._root_states_hist.clear()
+            self._actions_hist.clear()
+            self._dof_states_hist.clear()
+        
         return
 
     def _reset_actors(self, env_ids):
