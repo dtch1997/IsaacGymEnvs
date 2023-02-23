@@ -44,6 +44,8 @@ params:
   load_path: ${...checkpoint} # path to the checkpoint to load
 
   config:
+    player:
+      determenistic: True
     name: ${resolve_default:QuadrupedAMP,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
