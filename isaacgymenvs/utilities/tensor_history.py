@@ -36,7 +36,21 @@ class TensorIO:
     """ Read/write tensors to disk.
     
     Wrapper around h5py dataset """
-    def __init__(self, 
+
+    def __init__(self,
+        file: h5py.File,
+        tensor_shape: typing.Tuple[int, ...],
+        dataset_name: str = 'tensor' 
+    ):
+        self.file = file 
+        self.dataset_name = dataset_name
+        self.tensor_shape = tensor_shape
+        self.curr_size = 0
+        self.max_size = 16
+        self.dataset = file.create_dataset(dataset_name, (16, *tensor_shape), chunks=True, maxshape=(None, *tensor_shape))
+
+    @staticmethod
+    def new(
         filepath: str, 
         tensor_shape: typing.Tuple[int, ...],
         dataset_name: str = 'tensor', 
@@ -44,13 +58,7 @@ class TensorIO:
     ):
         mode = 'a' if append else 'w' 
         file = h5py.File(filepath, mode)
-        
-        self.dataset_name = dataset_name
-        self.tensor_shape = tensor_shape
-        self.append = append
-        self.curr_size = 0
-        self.max_size = 16
-        self.dataset = file.create_dataset(dataset_name, (16, *tensor_shape), chunks=True, maxshape=(None, *tensor_shape))
+        return TensorIO(file, tensor_shape, dataset_name)
 
     def _is_idx_valid(self, idx: typing.Any) -> bool:
         if isinstance(idx, slice):
