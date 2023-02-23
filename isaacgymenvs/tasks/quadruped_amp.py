@@ -38,6 +38,7 @@ from isaacgym.torch_utils import *
 
 from isaacgymenvs.tasks.quadruped_amp_base import QuadrupedAMPBase
 from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
+from isaacgymenvs.utilities.tensor_history import TensorHistory, TensorIO
 
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
@@ -100,6 +101,8 @@ class QuadrupedAMP(QuadrupedAMPBase):
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
 
         self._amp_obs_demo_buf = None
+        self._root_states_hist = TensorHistory(self.max_episode_length, self.root_states.shape[1:], dtype=self.root_states.dtype, device=self.device)
+        self._root_states_io = TensorIO('dataset.hdf5', self.root_states.shape[1:], 'root_states')
 
     def post_physics_step(self):
         super().post_physics_step()
@@ -109,6 +112,7 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
+        self._root_states_hist.update(self.root_states)
 
         return
 
@@ -163,6 +167,10 @@ class QuadrupedAMP(QuadrupedAMPBase):
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         self._init_amp_obs(env_ids)
+        if len(self._root_states_hist) > 0:
+            root_states_history = self._root_states_hist.get_history().detach().cpu().numpy()
+            self._root_states_io.write(root_states_history)
+        self._root_states_hist.clear()
         return
 
     def _reset_actors(self, env_ids):
