@@ -89,7 +89,7 @@ env:
   enableCameraSensors: False
 
   logging:
-    enableTensorLogging: True
+    enableTensorLogging: False
     loggingFilePath: dataset.hdf5
 
 sim:
