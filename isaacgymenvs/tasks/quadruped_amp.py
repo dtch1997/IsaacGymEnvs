@@ -125,11 +125,22 @@ class QuadrupedAMP(QuadrupedAMPBase):
                 tensor_shape = (self.max_episode_length,) + dof_state_shape[1:],
                 dataset_name = 'dof_states'
             )
+            self._obs_hist = TensorHistory(self.max_episode_length, self.obs_buf.shape, dtype=self.obs_buf.dtype, device=self.device)
+            self._obs_io = TensorIO(
+                file = h5_file, 
+                tensor_shape = (self.max_episode_length,) + self.obs_buf.shape[1:],
+                dataset_name = 'observations'
+            )
             # Log some additional metadata
             h5_file.attrs['dt'] = self.dt 
             h5_file.attrs['max_episode_length'] = self.max_episode_length
 
     def post_physics_step(self):
+        # super().post_physics_step recalculates observations
+        # So we must log the observation used before that
+        if self.enable_logging:
+            self._obs_hist.update(self.obs_buf)
+
         super().post_physics_step()
         
         self._update_hist_amp_obs()
@@ -216,9 +227,14 @@ class QuadrupedAMP(QuadrupedAMPBase):
                 dof_state_history = torch.transpose(dof_state_history, 0, 1)
                 self._dof_states_io.write(dof_state_history.detach().cpu().numpy())
 
+                obs_history = self._obs_hist.get_history()
+                obs_history = torch.transpose(obs_history, 0, 1)
+                self._obs_io.write(obs_history.detach().cpu().numpy())
+
             self._root_states_hist.clear()
             self._actions_hist.clear()
             self._dof_states_hist.clear()
+            self._obs_hist.clear()
         
         return
 
