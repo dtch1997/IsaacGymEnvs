@@ -38,7 +38,6 @@ from isaacgym.torch_utils import *
 
 from isaacgymenvs.tasks.quadruped_amp_base import QuadrupedAMPBase
 from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
-from isaacgymenvs.utilities.tensor_history import TensorHistory, TensorIO
 
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
@@ -104,6 +103,7 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         self.enable_logging = self.cfg["env"]["logging"]["enableTensorLogging"]
         if self.enable_logging:
+            from isaacgymenvs.utilities.tensor_history import TensorHistory, TensorIO
             self.logging_filepath = self.cfg["env"]["logging"]["loggingFilePath"]
             self._root_states_hist = TensorHistory(self.max_episode_length, self.root_states.shape, dtype=self.root_states.dtype, device=self.device)
             self._root_states_io = TensorIO.new(
