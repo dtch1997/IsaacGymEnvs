@@ -96,7 +96,7 @@ class BehaviourCloning(pl.LightningModule):
 
 if __name__ == "__main__":
 
-    state_dim = 4 + 3 + 3 + 12 + 12 # root_rot, root_lin_vel, root_ang_vel, dof_pos, dof_vel
+    state_dim = 45
     action_dim = 12 # 12 dof pos
     latent_dim = 32
     num_future_states = 2
@@ -120,6 +120,6 @@ if __name__ == "__main__":
         group='CoMiC',
         name='comic_bc',
     )
-    trainer = pl.Trainer(max_epochs=1, logger=wandb_logger)
+    trainer = pl.Trainer(max_epochs=20, logger=wandb_logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
     trainer.test(model=bc_module, datamodule = datamodule)
