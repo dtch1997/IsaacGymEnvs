@@ -19,27 +19,24 @@ class NPMPDataset(Dataset):
         self.attrs = {k: v for k, v in file.attrs.items()}
         
         self.file = file
-        self.dataset_size = file["root_states"].shape[0]
         self.root_states = file["root_states"]
         self.dof_states = file["dof_states"]
+        self.observations = file["observations"]
         self.actions = file["actions"]
 
     def _num_samples_per_trajectory(self):
         return self.file.attrs["max_episode_length"] - self.num_future_states - 1
 
     def _num_trajectories(self):
-        return self.dataset_size
+        return self.file["root_states"].attrs["size"]
 
     def __len__(self):
         return self._num_trajectories()
 
     def __getitem__(self, idx):
         trajectory_idx = idx 
-        root_states = self.root_states[trajectory_idx, :, 3:]
-        dof_states = self.dof_states[trajectory_idx, :, :]
         actions = self.actions[trajectory_idx, :]
-        
-        states = np.concatenate([root_states, dof_states], axis=-1)
+        states = self.observations[trajectory_idx, :]
         s = states[:self._num_samples_per_trajectory()] # [T, s]
         a = actions[:self._num_samples_per_trajectory()] # [T, a]
         x = np.expand_dims(s, 1) # [T, 1, s]
@@ -59,12 +56,12 @@ if __name__ == "__main__":
     dataset = NPMPDataset(dataset_path, num_future_states = 4)
 
     print(len(dataset))
-    sample = dataset[:10]
+    sample = dataset[0]
     print(list(sample.keys()))
     for k, v in sample.items():
         print(f"{k}: {v.shape}")
 
     # Simple sanity check
-    s1 = sample['state'][0,1]
-    s1_x = sample['future_state'][0][0, 0]
+    s1 = sample['state'][1]
+    s1_x = sample['future_state'][0][0]
     assert np.all(s1 == s1_x)
