@@ -57,6 +57,7 @@ def launch_rlg_hydra(cfg: DictConfig):
     from isaacgymenvs.learning import amp_models
     from isaacgymenvs.learning import amp_network_builder
     from isaacgymenvs.learning import ase_agent, ase_players, ase_models, ase_network_builder
+    from isaacgymenvs.learning import hrl_agent, hrl_players, hrl_models, hrl_network_builder
     import isaacgymenvs
 
     time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -149,6 +150,7 @@ def launch_rlg_hydra(cfg: DictConfig):
         model_builder.register_model('ase', lambda network, **kwargs : ase_models.ModelASEContinuous(network))
         model_builder.register_network('amp', lambda **kwargs : amp_network_builder.AMPBuilder())
         model_builder.register_network('ase', lambda **kwargs : ase_network_builder.ASEBuilder())
+        model_builder.register_network('hrl', lambda **kwargs: hrl_network_builder.HRLBuilder())
         return runner
 
     rlg_config_dict = omegaconf_to_dict(cfg.train)

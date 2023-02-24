@@ -44,19 +44,13 @@ class HRLBuilder(network_builder.A2CBuilder):
             return
 
         def _build_llc(self):
-            self.llc = Actor(self.input_shape, self.action_dim, self.latent_dim, self.hidden_dim)
-            
-            mlp_init = self.init_factory.create(**self._disc_initializer)
-            for m in self.llc.modules():
-                if isinstance(m, nn.Linear):
-                    mlp_init(m.weight)
-                    if getattr(m, "bias", None) is not None:
-                        torch.nn.init.zeros_(m.bias) 
+            assert len(self.input_shape) == 1
+            self.llc = Actor(self.input_shape[-1], self.action_dim, self.latent_dim, self.hidden_dim)
             return
 
         def _load_llc_from_checkpoint(self):
             # TODO: remove hardcoded path
-            checkpoint_path = '/home/daniel/Documents/github/IsaacGymEnvs/isaacgymenvs/data/checkpoints/llc/actor.pth'
+            checkpoint_path = 'data/checkpoints/llc/actor.pth'
             self.llc.load_state_dict(torch.load(checkpoint_path))
             for p in self.llc.parameters():
                 p.requires_grad=False
@@ -64,7 +58,7 @@ class HRLBuilder(network_builder.A2CBuilder):
         def forward(self, obs_dict):
             latent, _, value, states = super().forward(obs_dict)
             obs = obs_dict['obs']
-            mu = self.actor(obs, latent)
+            mu = self.llc(obs, latent)
             sigma = self.llc_sigma
             return mu, sigma, value, states
 
