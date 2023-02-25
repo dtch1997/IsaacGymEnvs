@@ -175,10 +175,12 @@ class QuadrupedAMPBase(VecTask):
 
         body_names = self.gym.get_asset_rigid_body_names(anymal_asset)
         self.dof_names = self.gym.get_asset_dof_names(anymal_asset)
-        extremity_name = "SHANK" if asset_options.collapse_fixed_joints else "FOOT"
+        # TODO: Make extremity_name, knee_name configurable
+        extremity_name = "foot"
+        knee_name = "thigh"
         feet_names = [s for s in body_names if extremity_name in s]
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
-        knee_names = [s for s in body_names if "THIGH" in s]
+        knee_names = [s for s in body_names if knee_name in s]
         self.knee_indices = torch.zeros(len(knee_names), dtype=torch.long, device=self.device, requires_grad=False)
         self.base_index = 0
 
