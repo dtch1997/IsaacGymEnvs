@@ -110,6 +110,10 @@ class BehaviourCloning(pl.LightningModule):
         self._log_batch_stats(batch_stats, "test")
         return batch_dict["loss"]
 
+    def on_train_end(self):
+        torch.save(self.encoder.state_dict(), 'encoder.pth')
+        torch.save(self.actor.state_dict(), 'actor.pth')
+
     def kl_loss(self, latent, variance=None):
         """
         Assume the HLC action distribution is a Gaussian N(latent, Sigma)
@@ -152,6 +156,11 @@ if __name__ == "__main__":
         group='CoMiC',
         name='comic_bc',
     )
-    trainer = pl.Trainer(max_epochs=20, logger=wandb_logger)
+    trainer = pl.Trainer(max_epochs=1, logger=wandb_logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
     trainer.test(model=bc_module, datamodule = datamodule)
+    # Save checkpoint to WandB 
+    
+    import wandb 
+    wandb.save('encoder.pth')
+    wandb.save('actor.pth')
