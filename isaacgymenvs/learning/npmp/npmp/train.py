@@ -131,7 +131,7 @@ class BehaviourCloning(pl.LightningModule):
         if variance is None:
             variance = torch.ones_like(latent)
         loss = torch.log(variance) + variance + latent**2 - 1
-        return loss.mean()
+        return loss.sum(dim=-1).mean()
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
