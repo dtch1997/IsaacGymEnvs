@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import pytorch_lightning as pl
 
+from os import cpu_count
 from torch.utils.data import DataLoader, random_split
 from npmp.model import Encoder, Actor 
 from npmp.dataset import NPMPDataset
@@ -33,14 +34,15 @@ class BCDataModule(pl.LightningDataModule):
         return DataLoader(
             self.dataset_train, 
             batch_size = self.batch_size, 
-            shuffle=True
+            shuffle=True,
+            num_workers=cpu_count()
         )
 
     def val_dataloader(self):
-        return DataLoader(self.dataset_val, batch_size = self.batch_size)
+        return DataLoader(self.dataset_val, batch_size = self.batch_size, num_workers=cpu_count())
 
     def test_dataloader(self):
-        return DataLoader(self.dataset_test, batch_size = self.batch_size)
+        return DataLoader(self.dataset_test, batch_size = self.batch_size, num_workers=cpu_count())
 
 class BehaviourCloning(pl.LightningModule):
     
@@ -132,6 +134,12 @@ class BehaviourCloning(pl.LightningModule):
 
 if __name__ == "__main__":
 
+    import argparse 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--track', action='store_true', default=False)
+    parser.add_argument('-d', '--device', type=str, default='gpu')
+    args = parser.parse_args()
+
     state_dim = 45
     action_dim = 12 # 12 dof pos
     latent_dim = 32
@@ -150,20 +158,27 @@ if __name__ == "__main__":
     dataset_path = root_dir / 'data' / 'dataset_small.h5'
     datamodule = BCDataModule(dataset_path, num_future_states, batch_size=batch_size)
 
-    from pytorch_lightning.loggers import WandbLogger
-    wandb_logger = WandbLogger(
-        project='QuadrupedASE',
-        group='CoMiC',
-        name='comic_bc',
-    )
-    trainer = pl.Trainer(max_epochs=1, logger=wandb_logger)
+    if args.track:
+        from pytorch_lightning.loggers import WandbLogger
+        logger = WandbLogger(
+            project='QuadrupedASE',
+            group='CoMiC',
+            name='comic_bc',
+        )
+    else:
+        from pytorch_lightning.loggers import TensorBoardLogger
+        logger = TensorBoardLogger('lightning_logs')
+
+    trainer = pl.Trainer(accelerator = args.device, max_epochs=1, logger=logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
     trainer.test(model=bc_module, datamodule = datamodule)
-    # Save checkpoint to WandB 
-    import wandb 
-    wandb.save('encoder.pth')
-    wandb.save('actor.pth')
-    # Delete old checkpoint
-    import pathlib 
-    pathlib.Path('encoder.pth').unlink()
-    pathlib.Path('actor.pth').unlink()
+    
+    if args.track:
+        # Save checkpoint to WandB 
+        import wandb 
+        wandb.save('encoder.pth')
+        wandb.save('actor.pth')
+        # Delete old checkpoint
+        import pathlib 
+        pathlib.Path('encoder.pth').unlink()
+        pathlib.Path('actor.pth').unlink()
