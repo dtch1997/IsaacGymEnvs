@@ -57,7 +57,7 @@ def launch_rlg_hydra(cfg: DictConfig):
     from isaacgymenvs.learning import amp_models
     from isaacgymenvs.learning import amp_network_builder
     from isaacgymenvs.learning import ase_agent, ase_players, ase_models, ase_network_builder
-    from isaacgymenvs.learning import hrl_agent, hrl_players, hrl_models, hrl_network_builder
+    from isaacgymenvs.learning import hrl_network_builder
     import isaacgymenvs
 
     time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
