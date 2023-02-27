@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import pathlib
 import pytorch_lightning as pl
 
 from os import cpu_count
@@ -46,8 +47,9 @@ class BCDataModule(pl.LightningDataModule):
 
 class BehaviourCloning(pl.LightningModule):
     
-    def __init__(self, encoder, actor):
+    def __init__(self, encoder, actor, reg_coef: float = 0):
         super(BehaviourCloning, self).__init__()
+        self.save_hyperparameters(ignore=["encoder", "actor"])
         self.encoder = encoder 
         self.actor = actor
 
@@ -64,7 +66,7 @@ class BehaviourCloning(pl.LightningModule):
         # Regularize z by making it more similar to unit Gaussian
         regularization_loss = self.kl_loss(z)
         # TODO: Make regularization loss coefficient configurable
-        loss = behaviour_cloning_loss + 1e-2 * regularization_loss
+        loss = behaviour_cloning_loss + self.hparams.reg_coef * regularization_loss
         
         return {
             "loss": loss, 
@@ -113,6 +115,9 @@ class BehaviourCloning(pl.LightningModule):
         return batch_dict["loss"]
 
     def on_train_end(self):
+        # Delete old checkpoint
+        pathlib.Path('encoder.pth').unlink(missing_ok=True)
+        pathlib.Path('actor.pth').unlink(missing_ok=True)
         torch.save(self.encoder.state_dict(), 'encoder.pth')
         torch.save(self.actor.state_dict(), 'actor.pth')
 
@@ -139,6 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--track', action='store_true', default=False)
     parser.add_argument('-d', '--device', type=str, default='gpu')
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
+    parser.add_argument('-r', '--reg-coef', type=float, help="Set the coefficient for regularization loss", default=0.01)
     args = parser.parse_args()
 
     state_dim = 45
@@ -151,7 +157,10 @@ if __name__ == "__main__":
     # Define the architecture
     encoder = Encoder(state_dim, latent_dim, num_future_states, hidden_dim = hidden_dim)
     actor = Actor(state_dim, action_dim, latent_dim, hidden_dim= hidden_dim)
-    bc_module = BehaviourCloning(encoder, actor)
+    bc_module = BehaviourCloning(
+        encoder, actor, 
+        reg_coef = args.reg_coef
+    )
 
     # Define a dataset
     import pathlib
@@ -177,9 +186,6 @@ if __name__ == "__main__":
     if args.track:
         # Save checkpoint to WandB 
         import wandb 
-        wandb.save('encoder.pth')
-        wandb.save('actor.pth')
-        # Delete old checkpoint
-        import pathlib 
-        pathlib.Path('encoder.pth').unlink()
-        pathlib.Path('actor.pth').unlink()
+        current_dir = pathlib.Path(__file__).absolute().parent
+        wandb.save(str(current_dir / 'encoder.pth'), base_path = str(current_dir))
+        wandb.save(str(current_dir / 'actor.pth'), base_path = str(current_dir))
