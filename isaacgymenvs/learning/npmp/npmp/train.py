@@ -160,7 +160,10 @@ if __name__ == "__main__":
     trainer.fit(model=bc_module, datamodule = datamodule)
     trainer.test(model=bc_module, datamodule = datamodule)
     # Save checkpoint to WandB 
-    
     import wandb 
     wandb.save('encoder.pth')
     wandb.save('actor.pth')
+    # Delete old checkpoint
+    import pathlib 
+    pathlib.Path('encoder.pth').unlink()
+    pathlib.Path('actor.pth').unlink()
