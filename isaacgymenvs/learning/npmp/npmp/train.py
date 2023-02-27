@@ -138,6 +138,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--track', action='store_true', default=False)
     parser.add_argument('-d', '--device', type=str, default='gpu')
+    parser.add_argument('-n', '--num-epochs', type=int, default=10)
     args = parser.parse_args()
 
     state_dim = 45
@@ -169,7 +170,7 @@ if __name__ == "__main__":
         from pytorch_lightning.loggers import TensorBoardLogger
         logger = TensorBoardLogger('lightning_logs')
 
-    trainer = pl.Trainer(accelerator = args.device, max_epochs=1, logger=logger)
+    trainer = pl.Trainer(accelerator = args.device, max_epochs=args.num_epochs, logger=logger)
     trainer.fit(model=bc_module, datamodule = datamodule)
     trainer.test(model=bc_module, datamodule = datamodule)
     
