@@ -61,6 +61,7 @@ class QuadrupedCommandVel(QuadrupedAMPBase):
 
     def compute_reward(self):
         self.rew_buf[:], _ = compute_anymal_reward(
+            self.progress_buf,
             # tensors
             self.root_states,
             self.commands,
@@ -77,6 +78,7 @@ class QuadrupedCommandVel(QuadrupedAMPBase):
 
     def compute_reset(self):
         _, self.reset_buf[:] = compute_anymal_reward(
+            self.progress_buf,
             # tensors
             self.root_states,
             self.commands,
@@ -102,6 +104,7 @@ class QuadrupedCommandVel(QuadrupedAMPBase):
 
 @torch.jit.script
 def compute_anymal_reward(
+    progress_buf,
     # tensors
     root_states,
     commands,
@@ -116,7 +119,7 @@ def compute_anymal_reward(
     max_episode_length
 ):
     # (reward, reset, feet_in air, feet_air_time, episode sums)
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Dict[str, float], int, int) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Dict[str, float], int, int) -> Tuple[Tensor, Tensor]
 
     # prepare quantities (TODO: return from obs ?)
     base_quat = root_states[:, 3:7]
@@ -132,8 +135,13 @@ def compute_anymal_reward(
     total_reward = rew_lin_vel_xy + rew_ang_vel_z
     total_reward = torch.clip(total_reward, 0., None)
     # reset agents
-    reset = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.
-    reset = reset | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
+
+    # first timestep can sometimes still have nonzero contact forces
+    # so only check after first couple of steps
+    has_fallen = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.
+    has_fallen |= torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
+    has_fallen *= (progress_buf > 1)
+    reset = has_fallen
     time_out = episode_lengths >= max_episode_length - 1  # no terminal reward for time-outs
     reset = reset | time_out
 
