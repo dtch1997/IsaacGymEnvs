@@ -49,7 +49,7 @@ class BehaviourCloning(pl.LightningModule):
         self.encoder = encoder 
         self.actor = actor
 
-    def training_step(self, batch, batch_idx):
+    def _calc_batch_dict(self, batch, batch_idx):
         s = batch['state'] # [b, T, s_dim]
         a_true = batch['action'] # [b, T, a_dim]
         x = batch['future_state'] # [b, T, k, s_dim]
@@ -58,37 +58,69 @@ class BehaviourCloning(pl.LightningModule):
         z = self.encoder(x, s)
         a_pred = self.actor(s, z)
 
-        loss = nn.functional.mse_loss(a_pred, a_true)
-        self.log("info/train_loss", loss)
-        return loss
+        behaviour_cloning_loss = nn.functional.mse_loss(a_pred, a_true, reduction="mean")
+        # Regularize z by making it more similar to unit Gaussian
+        regularization_loss = self.kl_loss(z)
+        # TODO: Make regularization loss coefficient configurable
+        loss = behaviour_cloning_loss + 1e-2 * regularization_loss
+        
+        return {
+            "loss": loss, 
+            "bc_loss": behaviour_cloning_loss, 
+            "reg_loss": regularization_loss,
+            "state": s,
+            "action": a_true, 
+            "action_pred": a_pred,
+            "latent": z
+        }
+
+    def _calc_batch_stats(self, batch_dict):
+        """ Calculate various statistics of interest """
+        for key in ["state", "action", "action_pred", "latent"]:
+            value = batch_dict.pop(key)
+            mean = torch.mean(value, dim=-1)
+            std = torch.std(value, dim=-1)
+            min = torch.min(value, dim=-1)
+            max = torch.max(value, dim=-1)
+            batch_dict[f"{key}_mean"] = mean.mean()
+            batch_dict[f"{key}_std"] = std.mean()
+            batch_dict[f"{key}_min"] = min[0].mean()
+            batch_dict[f"{key}_max"] = max[0].mean()
+        return batch_dict
+
+    def _log_batch_stats(self, batch_stats, prefix="info"):
+        for k, v in batch_stats.items():
+            self.log(f"{prefix}/{k}", v)
+
+    def training_step(self, batch, batch_idx):
+        batch_dict = self._calc_batch_dict(batch, batch_idx)
+        batch_stats = self._calc_batch_stats(batch_dict)
+        self._log_batch_stats(batch_stats, "train")
+        return batch_dict["loss"]
 
     def validation_step(self, batch, batch_idx):
-        # this is the validation loop
-        s = batch['state'] # [b, T, s_dim]
-        a_true = batch['action'] # [b, T, a_dim]
-        x = batch['future_state'] # [b, T, k, s_dim]
-        x = x.flatten(start_dim = -2, end_dim=-1)
-
-        z = self.encoder(x, s)
-        a_pred = self.actor(s, z)
-
-        loss = nn.functional.mse_loss(a_pred, a_true)
-        self.log("info/val_loss", loss)
-        return loss
+        batch_dict = self._calc_batch_dict(batch, batch_idx)
+        batch_stats = self._calc_batch_stats(batch_dict)
+        self._log_batch_stats(batch_stats, "val")
+        return batch_dict["loss"]
 
     def test_step(self, batch, batch_idx):
-        # this is the validation loop
-        s = batch['state'] # [b, T, s_dim]
-        a_true = batch['action'] # [b, T, a_dim]
-        x = batch['future_state'] # [b, T, k, s_dim]
-        x = x.flatten(start_dim = -2, end_dim=-1)
+        batch_dict = self._calc_batch_dict(batch, batch_idx)
+        batch_stats = self._calc_batch_stats(batch_dict)
+        self._log_batch_stats(batch_stats, "test")
+        return batch_dict["loss"]
 
-        z = self.encoder(x, s)
-        a_pred = self.actor(s, z)
+    def kl_loss(self, latent, variance=None):
+        """
+        Assume the HLC action distribution is a Gaussian N(latent, Sigma)
+        Calculate KL divergence with a unit prior
 
-        loss = nn.functional.mse_loss(a_pred, a_true)
-        self.log("info/test_loss", loss)
-        return loss
+        Reference: https://stats.stackexchange.com/questions/318184/kl-loss-with-a-unit-gaussian
+        """
+        if variance is None:
+            variance = torch.ones_like(latent)
+        loss = torch.log(variance) + variance + latent**2 - 1
+        return loss.mean()
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
