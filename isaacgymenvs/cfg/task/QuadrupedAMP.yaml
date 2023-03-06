@@ -48,6 +48,7 @@ env:
     targetSpeedRange:
       lower: 0.0
       upper: 2.0
+    velErrorScale: 1.0
 
   control:
     # PD Drive parameters:

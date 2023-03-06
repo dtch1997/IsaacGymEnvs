@@ -91,7 +91,7 @@ class TargetVelocity(AbstractTask):
         root_vel = root_states[:, 7:10]
         target_vel = self.target_direction * self.target_speed
         dot_prod = torch.sum(root_vel * target_vel, dim=-1)
-        return exp_neg_sq(dot_prod)
+        return exp_neg_sq(dot_prod, alpha=self.cfg["velErrorScale"])
 
     def compute_observation(self, root_states: torch.Tensor):
         """
