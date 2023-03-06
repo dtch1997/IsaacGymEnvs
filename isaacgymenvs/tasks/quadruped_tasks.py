@@ -1,6 +1,7 @@
 import abc 
 import torch
 
+from enum import Enum
 from isaacgymenvs.utils.torch_jit_utils import *
 
 def exp_neg_sq(x: torch.Tensor, alpha: float = 1):
@@ -9,7 +10,20 @@ def exp_neg_sq(x: torch.Tensor, alpha: float = 1):
     """
     return torch.exp(- alpha * x ** 2)
 
-class Task(abc.ABC):
+class Task(Enum):
+    Zero = 0
+    TargetLocation = 1 # Move to a specified goal location
+    TargetHeading = 2 # Turn to face a specified heading direction
+    TargetVelocity = 3 # Achieve a specified velocity
+
+def get_task_class_by_name(task_name: str):
+    task = Task[task_name]
+    if task == Task.TargetVelocity:
+        return TargetVelocity
+    else:
+        raise RuntimeError(f"Unrecognized task {task_name}")
+
+class AbstractTask(abc.ABC):
     """ Abstract base class for tasks """
     def __init__(self, cfg, num_envs, dtype, device):
         self.cfg = cfg
@@ -42,7 +56,7 @@ class Task(abc.ABC):
     def compute_observation(self):
         pass 
 
-class TargetVelocity(Task): 
+class TargetVelocity(AbstractTask): 
 
     def after_init(self):
         self.target_speed_lower = self.cfg["targetSpeedRange"]["lower"]

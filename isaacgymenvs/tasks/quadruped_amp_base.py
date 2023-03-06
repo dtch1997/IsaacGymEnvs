@@ -38,16 +38,9 @@ from isaacgymenvs.utils.torch_jit_utils import *
 from isaacgymenvs.tasks.base.vec_task import VecTask
 from enum import Enum
 from typing import Tuple, Dict
-from isaacgymenvs.tasks.quadruped_tasks import TargetVelocity
+from isaacgymenvs.tasks.quadruped_tasks import get_task_class_by_name
 
 class QuadrupedAMPBase(VecTask):
-
-    class Task(Enum):
-        Zero = 0
-        TargetLocation = 1 # Move to a specified goal location
-        TargetHeading = 2 # Turn to face a specified heading direction
-        TargetVelocity = 3 # Achieve a specified velocity
-
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
 
         self.cfg = cfg
@@ -81,7 +74,8 @@ class QuadrupedAMPBase(VecTask):
         self.named_default_joint_angles = self.cfg["env"]["defaultJointAngles"]
 
         # TODO: Make this configurable from YAML file
-        task_class = TargetVelocity
+        task_cfg = self.cfg["env"]["task"]
+        task_class = get_task_class_by_name(task_cfg["name"])
         task_obs_dim = task_class.get_observation_dim()
         self.cfg["env"]["numObservations"] = 1 + 6 + 3 + 3 + 12 + 12 + task_obs_dim
         self.cfg["env"]["numActions"] = 12
@@ -91,7 +85,7 @@ class QuadrupedAMPBase(VecTask):
 
         self.task = task_class(
             # TODO: Make this configurable from YAML file
-            cfg = {"targetSpeedRange": {"lower": 1.0, "upper": 5.0}}, 
+            cfg = task_cfg, 
             num_envs = self.num_envs, 
             dtype = torch.float32, 
             device = self.device
