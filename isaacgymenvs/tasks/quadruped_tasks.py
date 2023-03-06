@@ -28,17 +28,18 @@ class Task(abc.ABC):
         """ Reset the task """
         pass
 
-    @abc.abstractmethod()
+    @staticmethod
+    @abc.abstractmethod
     def get_observation_dim():
         """ Return the additional observation dimension required """
         pass
 
     @abc.abstractmethod
-    def compute_reward():
+    def compute_reward(self):
         pass 
 
     @abc.abstractmethod
-    def compute_observation():
+    def compute_observation(self):
         pass 
 
 class TargetVelocity(Task): 
@@ -50,6 +51,7 @@ class TargetVelocity(Task):
         self.target_direction = torch.zeros((self.num_envs, 3), dtype=self.dtype, device=self.device)
         self.target_speed = torch.zeros((self.num_envs, 1), dtype=self.dtype, device=self.device)
 
+    @staticmethod
     def get_observation_dim():
         return 3 + 1 # directional unit vector, target speed 
     

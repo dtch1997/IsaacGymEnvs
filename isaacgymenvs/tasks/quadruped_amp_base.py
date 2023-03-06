@@ -36,11 +36,17 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
 from isaacgymenvs.tasks.base.vec_task import VecTask
-
+from enum import Enum
 from typing import Tuple, Dict
-
+from isaacgymenvs.tasks.quadruped_tasks import TargetVelocity
 
 class QuadrupedAMPBase(VecTask):
+
+    class Task(Enum):
+        Zero = 0
+        TargetLocation = 1 # Move to a specified goal location
+        TargetHeading = 2 # Turn to face a specified heading direction
+        TargetVelocity = 3 # Achieve a specified velocity
 
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
 
@@ -74,12 +80,21 @@ class QuadrupedAMPBase(VecTask):
         # default joint positions
         self.named_default_joint_angles = self.cfg["env"]["defaultJointAngles"]
 
+        task_class = TargetVelocity
+        task_obs_dim = task_class.get_observation_dim()
+        # TODO: Add task_obs_dim to numObservations
         self.cfg["env"]["numObservations"] = 1 + 6 + 3 + 3 + 12 + 12
         self.cfg["env"]["numActions"] = 12
 
         # Call super init earlier to initialize sim params
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
+        self.task = task_class(
+            cfg = self.cfg["task"]["task"], 
+            num_envs = self.num_envs, 
+            dtype = torch.float32, 
+            device = self.device
+        )
         self.dt = self.sim_params.dt
         self.max_episode_length_s = self.cfg["env"]["episodeLength_s"]
         self.max_episode_length = int(self.max_episode_length_s / self.dt + 0.5)
@@ -252,6 +267,7 @@ class QuadrupedAMPBase(VecTask):
             self._update_debug_viz()
 
     def compute_reward(self):
+        # TODO: call task reward
         self.rew_buf[:] = compute_dummy_reward(
             # tensors
             self.obs_buf,
@@ -271,12 +287,13 @@ class QuadrupedAMPBase(VecTask):
         )
 
     def compute_observations(self, env_ids = None):
+
         self.gym.refresh_dof_state_tensor(self.sim)  # done in step
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
         self.gym.refresh_dof_force_tensor(self.sim)
 
-        # TODO: Replace default_dof_pos with _pd_action_offset
+        # TODO: call task observation
         if env_ids is None:
             self.obs_buf[:] = compute_quadruped_observations(  # tensors
                                                             self.root_states,
@@ -295,6 +312,7 @@ class QuadrupedAMPBase(VecTask):
 
     def reset_idx(self, env_ids):
         self._reset_actors(env_ids)
+        self.task.reset(env_ids)
         self.compute_observations(env_ids)
         
     def _reset_actors(self, env_ids):
