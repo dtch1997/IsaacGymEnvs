@@ -18,7 +18,7 @@ class Task(abc.ABC):
         self.device = device
         self.after_init()
         
-        env_ids = to_torch(range(0, self.num_envs), dtype=torch.int32, device=self.device)
+        env_ids = to_torch(range(0, self.num_envs), dtype=torch.int64, device=self.device)
         self.reset(env_ids)
 
     def after_init(self):
@@ -67,7 +67,7 @@ class TargetVelocity(Task):
         l, u = self.target_speed_lower, self.target_speed_upper
         v = (u - l) * v + l
         self.target_direction[env_ids] = d
-        self.target_velocity[env_ids] = v
+        self.target_speed[env_ids] = v
     
     def compute_reward(self, root_states: torch.Tensor):
         """

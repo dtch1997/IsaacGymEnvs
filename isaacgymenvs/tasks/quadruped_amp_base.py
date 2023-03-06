@@ -90,7 +90,8 @@ class QuadrupedAMPBase(VecTask):
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
         self.task = task_class(
-            cfg = self.cfg["task"]["task"], 
+            # TODO: make this configurable from YAML file
+            cfg = {"targetSpeedRange": {"lower": 1.0, "upper": 5.0}}, 
             num_envs = self.num_envs, 
             dtype = torch.float32, 
             device = self.device
