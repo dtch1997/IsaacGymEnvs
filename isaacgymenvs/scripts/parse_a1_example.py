@@ -1,6 +1,7 @@
 import argparse
 import isaacgym
 import torch
+import pathlib
 from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
 
 from typing import Dict, Tuple
@@ -9,8 +10,8 @@ import json
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Convert a1_expert_raw to desired format")
-    parser.add_argument("--input-filepath", type=str)
-    parser.add_argument("--output-filepath", type=str)
+    parser.add_argument("--input-dir", type=str)
+    parser.add_argument("--output-dir", type=str)
     parser.add_argument("-s", "--start-time-frac", type=float, help="Start time as a fraction. E.g. 0.2 = start from 20% of the way in", default = 0.0)
     parser.add_argument("-e", "--end-time-frac", type=float, help="End time as a fraction. E.g. 0.8 = end at 80% of the way in", default = 1.0)
     args = parser.parse_args()
@@ -59,8 +60,45 @@ def write_motion_data(filepath: str, frames: np.ndarray, dt: float, loop_mode: s
 
 if __name__ == "__main__":
     args = parse_args()
-    frame_data, dt = parse_mocap_data(args.input_filepath)
-    n_timesteps = frame_data.shape[0]
-    start_time = int(n_timesteps * args.start_time_frac)
-    end_time = int(n_timesteps * args.end_time_frac)
-    write_motion_data(args.output_filepath, frame_data[start_time: end_time], dt, loop_mode='Clamp')
+
+    input_dir = pathlib.Path(args.input_dir)
+    filepaths = input_dir.rglob("*.csv")
+
+    output_dir = pathlib.Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    count = 0
+
+    output_filenames = []
+
+    for filepath in filepaths:
+        count += 1
+        frame_data, dt = parse_mocap_data(str(filepath))
+        n_timesteps = frame_data.shape[0]
+        start_time = int(n_timesteps * args.start_time_frac)
+        end_time = int(n_timesteps * args.end_time_frac)
+        
+        output_filename = filepath.relative_to(input_dir)
+        output_filename = output_filename.parent / output_filename.stem
+        output_filename = '_'.join(str(output_filename).split('/'))
+        output_filename += '.txt'
+
+        # Ensure no repeating filenames
+        assert output_filename not in output_filenames
+        output_filenames.append(output_filename)
+
+        write_motion_data(
+            output_dir / (output_filename), 
+            frame_data[start_time: end_time], 
+            dt, loop_mode='Clamp'
+        )
+
+    # Write metadata
+    metadatas = []
+    for fp in output_filenames:
+        metadata = {'file': fp, 'weight': 1 / count}
+        metadatas.append(metadata)
+    import yaml
+    with open(output_dir / 'dataset.yaml', 'w') as dataset_file:
+        yaml.dump({'motions': metadatas}, dataset_file)
+
+    

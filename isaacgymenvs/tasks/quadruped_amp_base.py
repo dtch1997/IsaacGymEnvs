@@ -391,6 +391,17 @@ class QuadrupedAMPBase(VecTask):
 
         return
 
+    def set_char_color(self, col, env_ids):
+        for env_id in env_ids:
+            env_ptr = self.envs[env_id]
+            handle = self.anymal_handles[env_id]
+
+            for j in range(self.num_bodies):
+                self.gym.set_rigid_body_color(env_ptr, handle, j, gymapi.MESH_VISUAL,
+                                              gymapi.Vec3(col[0], col[1], col[2]))
+
+        return
+
 #####################################################################
 ###=========================jit functions=========================###
 #####################################################################
