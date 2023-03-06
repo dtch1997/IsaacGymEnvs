@@ -75,7 +75,9 @@ class TargetVelocity(Task):
             root_states: [N, 13] tensor of root states in world frame
         """
         root_vel = root_states[:, 7:10]
-        return exp_neg_sq(root_vel.dot(self.target_vel))
+        target_vel = self.target_direction * self.target_speed
+        dot_prod = torch.sum(root_vel * target_vel, dim=-1)
+        return exp_neg_sq(dot_prod)
 
     def compute_observation(self, root_states: torch.Tensor):
         """
@@ -87,7 +89,7 @@ class TargetVelocity(Task):
         root_rot = root_states[:, 3:7]
         heading_rot = calc_heading_quat_inv(root_rot)
         target_direction_local = my_quat_rotate(heading_rot, target_direction)
-        return torch.cat([target_direction_local, target_speed])
+        return torch.cat([target_direction_local, target_speed], dim=-1)
 
 # TODO: Refactor this into a class
 def compute_reward_target_location(root_states, target_pos):
