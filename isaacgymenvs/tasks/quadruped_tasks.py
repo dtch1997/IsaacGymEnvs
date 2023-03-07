@@ -62,6 +62,7 @@ class AbstractTask(abc.ABC):
 class TargetVelocity(AbstractTask): 
 
     def after_init(self):
+        self.target_direction_reset_strategy = self.cfg["targetDirection"]["reset_strategy"]
         self.target_speed_lower = self.cfg["targetSpeedRange"]["lower"]
         self.target_speed_upper = self.cfg["targetSpeedRange"]["upper"]
         assert self.target_speed_lower <= self.target_speed_upper
@@ -77,7 +78,10 @@ class TargetVelocity(AbstractTask):
     
     def reset(self, env_ids):
         """ Reset subset of commands """
-        self.reset_random_direction(env_ids)
+        if self.target_direction_reset_strategy == "random":
+            self.reset_random_direction(env_ids)
+        elif self.target_direction_reset_strategy == "x":
+            self.reset_x_direction(env_ids)  
         self.reset_random_speed(env_ids)
 
     def reset_random_direction(self, env_ids):
@@ -85,6 +89,12 @@ class TargetVelocity(AbstractTask):
         d = torch.randn_like(self.target_direction[env_ids])
         # Normalize it; the resulting unit vector is uniform on the hypersphere
         d = d / torch.norm(d, dim=-1, keepdim=True)
+        self.target_direction[env_ids] = d
+
+    def reset_x_direction(self, env_ids):
+        """ Set all direction vectors to [1,0,0] """
+        d = torch.zeros(self.target_direction[env_ids])
+        d[:, 0] = 1
         self.target_direction[env_ids] = d
 
     def reset_random_speed(self, env_ids):
