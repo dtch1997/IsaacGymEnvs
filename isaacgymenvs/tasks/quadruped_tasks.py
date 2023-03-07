@@ -73,7 +73,7 @@ class TargetVelocity(AbstractTask):
         return 3 + 1 # directional unit vector, target speed 
     
     def get_state(self):
-        return self.compute_observation()
+        return torch.cat([self.target_direction, self.target_speed], dim=-1)
     
     def reset(self, env_ids):
         """ Reset subset of commands """
