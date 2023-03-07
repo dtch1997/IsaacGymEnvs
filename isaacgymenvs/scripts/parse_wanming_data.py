@@ -1,8 +1,5 @@
 import argparse
-import isaacgym
-import torch
 import pathlib
-from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
 
 from scipy.spatial.transform import Rotation
 from typing import Dict, Tuple
@@ -35,19 +32,29 @@ def reorder_dofs(dof_data: np.ndarray) -> np.ndarray:
     rl_data = dof_data[9:12, ...]
     return np.concatenate([fl_data, fr_data, rl_data, rr_data], axis=0)
 
+def change_dof_signs(dof_data: np.ndarray) -> np.ndarray:
+    """
+    C.f. Wanming's email: 
+    Our URDFs are opposite so all joint pos, vel need to be flipped
+    """
+    return -dof_data
+
 def parse_mocap_data(filepath: str) -> Tuple[np.ndarray, float]:
     """ 
     Input: Filepath to raw data 
     Output: (T, 19) array, each row is (body_pos, body_orn, dof_pos)
     """
     arr = read_csv(filepath)
+    assert arr.shape[1] == 30
     dt = 0.04 # assume constant timestep
     body_pos = arr[:,0:3] # x, y, z
     body_orn = arr[:,3:6] # r, p, y
     r = Rotation.from_euler('xyz', body_orn)
     body_orn = r.as_quat()
 
-    dof_pos = reorder_dofs(arr[:,6:18].T).T # (FL, FR, RL, RR) sequence of (hip, thigh, calf) 
+    # Note that arr[:, 6:18] is DESIRED dof pos not actual; see Wanming's README
+    dof_pos = reorder_dofs(arr[:,18:30].T).T # (FL, FR, RL, RR) sequence of (hip, thigh, calf) 
+    dof_pos = change_dof_signs(dof_pos)
     frame_data = np.concatenate([body_pos, body_orn, dof_pos], axis=-1)
     return frame_data, dt
 
