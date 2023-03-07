@@ -26,7 +26,7 @@ class TensorHistory:
         return self.current_idx
 
     def get_history(self):
-        return self.tensor_history[:self.current_idx]
+        return self.tensor_history[:self.current_idx + 1]
 
     def clear(self):
         self.tensor_history = torch.zeros_like(self.tensor_history)

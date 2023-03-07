@@ -36,32 +36,32 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
 
     def __init__(self, params):
         super().__init__(params)
-        
+
         # Initialize loggers
         # TODO: find some way to avoid hardcoding these
-        num_envs = 32
-        max_episode_len = 1000
+        self.num_envs = 32
+        self.max_episode_len = 400
         # TODO: find some way to avoid hardcoding tensor shapes
         self.tensors: List[Tuple[str, int]] = [
             ("root_states", 13), 
             ("dof_pos", 12),
             ("dof_vel", 12), 
-            ("observations", 41), 
+            ("obs", 41), 
             ("prev_action", 12), 
             ("task_state", 4)
         ]
         self.tensor_histories: Dict[str, TensorHistory] = {}
         self.tensor_ios: Dict[str, TensorIO] = {}
         file_handle = TensorIO.new_file('dataset.h5')
-        for name, tensor_dim in self.tensor_names:
+        for name, tensor_dim in self.tensors:
             self.tensor_histories[name] = TensorHistory(
-                max_len = max_episode_len, 
-                tensor_shape = (num_envs, tensor_dim,),
+                max_len = self.max_episode_len, 
+                tensor_shape = (self.num_envs, tensor_dim,),
                 device = self.device
             )
             self.tensor_ios[name] = TensorIO(
                 file_handle, 
-                (num_envs, max_episode_len, tensor_dim,), 
+                (self.max_episode_len, tensor_dim,), 
                 name
             )
         return
@@ -73,22 +73,25 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
     
     def _env_reset_done(self):
         obs, env_ids = super()._env_reset_done()
-        # Assume all envs are reset simultaneously
-        # This will be true when enableEarlyTermination=False
-        # TODO: Add assert statement to check for this
-        self._save_tensor_histories()
-        self._reset_tensor_histories()
+        if len(env_ids) > 0:
+            # Assume all envs are reset simultaneously
+            # This will be true when enableEarlyTermination=False
+            assert len(env_ids) == self.num_envs
+            self._save_tensor_histories()
+            self._reset_tensor_histories()
         return obs, env_ids
 
     def _update_tensor_histories(self, info):
         for name, tensor_history in self.tensor_histories.items():
             assert name in info
-            tensor_history.update(info.name)
+            tensor_history.update(info[name])
         pass
 
     def _save_tensor_histories(self):
+        if self.tensor_histories['root_states'].current_idx == 0:
+            return
         for name, tensor_history in self.tensor_histories.items():
-            th = self.tensor_histories.get_history() # (T, N, d)    
+            th = tensor_history.get_history() # (T, N, d)    
             th = torch.transpose(th, 0, 1) # (N, T, d)
             tensor_io = self.tensor_ios[name]
             tensor_io.write(th.detach().cpu().numpy())
