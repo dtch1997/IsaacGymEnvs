@@ -51,7 +51,7 @@ def plot_motion_data(ts, root_states, dof_pos, dof_vel) -> plt.Axes:
     )
 
     # Body ang vel
-    body_lin_vel = root_states[:, 10:]
+    body_lin_vel = root_states[:, 7:10]
     line_plot(ax[1][0], ts, body_lin_vel, 
             title="Body Lin Vel",  
             xlabel="Time (s)",
@@ -60,7 +60,7 @@ def plot_motion_data(ts, root_states, dof_pos, dof_vel) -> plt.Axes:
     )
 
     # Body ang vel
-    body_ang_vel = root_states[:, 3:6]
+    body_ang_vel = root_states[:, 10:]
     line_plot(ax[1][1], ts, body_ang_vel, 
             title="Body Ang Vel",  
             xlabel="Time (s)", 
