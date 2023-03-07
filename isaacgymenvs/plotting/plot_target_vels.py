@@ -54,6 +54,8 @@ if __name__ == "__main__":
     # Plot histogram of fits
     fig, ax = plt.subplots()
     ax.hist(dot_prod, bins=20)
+    ax.set_title("Histogram of target and actual velocity")
+    ax.set_xlabel("Dot product of (target_vel, actual_vel)")
     fig.show()
     input("Press any key to exit...")
 
