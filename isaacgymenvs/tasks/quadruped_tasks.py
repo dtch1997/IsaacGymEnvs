@@ -77,16 +77,22 @@ class TargetVelocity(AbstractTask):
     
     def reset(self, env_ids):
         """ Reset subset of commands """
+        self.reset_random_direction(env_ids)
+        self.reset_random_speed(env_ids)
+
+    def reset_random_direction(self, env_ids):
         # Sample a standard Gaussian
         d = torch.randn_like(self.target_direction[env_ids])
         # Normalize it; the resulting unit vector is uniform on the hypersphere
         d = d / torch.norm(d, dim=-1, keepdim=True)
+        self.target_direction[env_ids] = d
+
+    def reset_random_speed(self, env_ids):
         # Sample a standard uniform 
         v = torch.rand_like(self.target_speed[env_ids])
         # Translate from [0,1] to [l, u]
         l, u = self.target_speed_lower, self.target_speed_upper
         v = (u - l) * v + l
-        self.target_direction[env_ids] = d
         self.target_speed[env_ids] = v
     
     def compute_reward(self, root_states: torch.Tensor):
