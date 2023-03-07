@@ -39,6 +39,7 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
 
         # Initialize loggers
         # TODO: find some way to avoid hardcoding these
+        self.dt = 0.02
         self.num_envs = 32
         self.max_episode_len = 400
         # TODO: find some way to avoid hardcoding tensor shapes
@@ -64,6 +65,8 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
                 (self.max_episode_len, tensor_dim,), 
                 name
             )
+        file_handle.attrs['dt'] = self.dt 
+        file_handle.attrs['max_episode_length'] = self.max_episode_len
         return
 
     def _post_step(self, info):
