@@ -93,7 +93,7 @@ class TargetVelocity(AbstractTask):
 
     def reset_x_direction(self, env_ids):
         """ Set all direction vectors to [1,0,0] """
-        d = torch.zeros(self.target_direction[env_ids])
+        d = torch.zeros_like(self.target_direction[env_ids])
         d[:, 0] = 1
         self.target_direction[env_ids] = d
 
