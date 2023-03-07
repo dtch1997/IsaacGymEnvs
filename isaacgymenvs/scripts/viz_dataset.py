@@ -9,6 +9,7 @@ from typing import Optional, List
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Visualize expert dataset")
     parser.add_argument("-f", "--filepath", type=str)
+    parser.add_argument("-t", "--trajectory-idx", type=int, default=0)
     args = parser.parse_args()
     return args
 
@@ -92,9 +93,12 @@ if __name__ == "__main__":
         print(file[name].attrs['size'])
 
     ts = np.arange(file.attrs['max_episode_length']) * file.attrs['dt']
-    root_states = file['root_states'][0]
-    dof_pos = file['dof_pos'][0]
-    dof_vel = file['dof_vel'][0]
+    
+    # Visualize one trajectory from the dataset
+    traj_idx = args.trajectory_idx
+    root_states = file['root_states'][traj_idx]
+    dof_pos = file['dof_pos'][traj_idx]
+    dof_vel = file['dof_vel'][traj_idx]
     fig, ax = plot_motion_data(ts, root_states, dof_pos, dof_vel)
     filename = pathlib.Path(args.filepath).stem
     fig.suptitle(filename, size=30)
