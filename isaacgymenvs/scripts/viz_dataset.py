@@ -31,7 +31,9 @@ def plot_motion_data(ts, root_states, dof_pos, dof_vel) -> plt.Axes:
     # Body pos 
     body_pos = root_states[:, :3]
     line_plot(ax[0][0], ts, body_pos, 
-            title="Body Pos", xlabel="Time (s)", 
+            title="Body Pos", 
+            xlabel="Time (s)",
+            ylabel="Position (m)",
             labels = ["x", "y", "z"]
     )
 
@@ -40,7 +42,7 @@ def plot_motion_data(ts, root_states, dof_pos, dof_vel) -> plt.Axes:
     line_plot(ax[0][1], ts, body_orn, 
             title="Body Orn",  
             xlabel="Time (s)", 
-            labels = ["x", "y", "z", "w"]
+            labels = ["qx", "qy", "qz", "qw"]
     )
 
     # Dof pos
