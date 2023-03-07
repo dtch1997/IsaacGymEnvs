@@ -42,6 +42,9 @@ class AbstractTask(abc.ABC):
         """ Reset the task """
         pass
 
+    def get_state(self):
+        return None
+
     @staticmethod
     @abc.abstractmethod
     def get_observation_dim():
@@ -68,6 +71,9 @@ class TargetVelocity(AbstractTask):
     @staticmethod
     def get_observation_dim():
         return 3 + 1 # directional unit vector, target speed 
+    
+    def get_state(self):
+        return self.compute_observation()
     
     def reset(self, env_ids):
         """ Reset subset of commands """
