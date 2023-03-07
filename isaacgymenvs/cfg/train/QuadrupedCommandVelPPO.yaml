@@ -2,13 +2,13 @@ params:
   seed: ${...seed}
 
   algo:
-    name: amp_continuous
+    name: a2c_continuous
 
   model:
-    name: continuous_amp
+    name: continuous_a2c_logstd
 
   network:
-    name: amp
+    name: actor_critic
     separate: True
 
     space:
@@ -47,7 +47,7 @@ params:
     player:
       games_num: 16384
       determenistic: True
-    name: ${resolve_default:QuadrupedAMP,${....experiment}}
+    name: ${resolve_default:QuadrupedCommandVel,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
     ppo: True

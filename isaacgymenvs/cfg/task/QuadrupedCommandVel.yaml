@@ -1,12 +1,9 @@
 # used to create the object
-name: QuadrupedAMP
+name: QuadrupedCommandVel
 
 physics_engine: ${..physics_engine}
 
 env:
-  # AMP-specific things
-  motionFile: 'data/motions/quadruped/dog_mocap/dog_trot_hq.txt'
-  # End AMP-specific things
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
   episodeLength_s: 8
@@ -73,6 +70,9 @@ env:
     defaultDofDriveMode: 4 # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 4 effort)
 
   learn:
+    # rewards
+    linearVelocityXYRewardScale: 1.0
+    angularVelocityZRewardScale: 0.5
     # normalization
     linearVelocityScale: 2.0
     angularVelocityScale: 0.25
@@ -87,10 +87,6 @@ env:
 
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False
-
-  logging:
-    enableTensorLogging: False
-    loggingFilePath: dataset.h5
 
 sim:
   dt: 0.02

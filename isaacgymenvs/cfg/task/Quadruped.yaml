@@ -28,9 +28,8 @@ env:
 
   control:
     # PD Drive parameters:
-    stiffness: 85.0  # [N*m/rad]
-    damping: 2.0     # [N*m*s/rad]
-    actionScale: 0.5
+    stiffness: 40.0  # [N*m/rad]
+    damping: 1.0     # [N*m*s/rad]
     controlFrequencyInv: 1 # 60 Hz
 
   defaultJointAngles:  # = target angles when action = 0.0

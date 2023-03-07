@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "npmp"
+version = "0.1.0"
+description = ""
+authors = ["Daniel Tan <dtch1997@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+torch = "^1.13.1"
+pytorch-lightning = "^1.9.3"
+numpy = "^1.24.2"
+h5py = "^3.8.0"
+tensordict = "^0.0.2b0"
+torchvision = "^0.14.1"
+tensorboard = "^2.12.0"
+wandb = "^0.13.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

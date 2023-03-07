@@ -96,7 +96,10 @@ class CommonPlayer(players.PpoPlayerContinuous):
                     masks = self.env.get_action_mask()
                     action = self.get_masked_action(obs_dict, masks, is_determenistic)
                 else:
-                    action = self.get_action(obs_dict, is_determenistic)
+                    optimal_action = self.get_action(obs_dict, is_determenistic=True)
+                    noisy_action = self.get_action(obs_dict, is_determenistic=False)
+                    action = optimal_action if is_determenistic else noisy_action
+
                 obs_dict, r, done, info =  self.env_step(self.env, action)
                 cr += r
                 steps += 1

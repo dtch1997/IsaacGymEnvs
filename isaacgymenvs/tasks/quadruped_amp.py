@@ -101,7 +101,46 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         self._amp_obs_demo_buf = None
 
+        self.enable_logging = self.cfg["env"]["logging"]["enableTensorLogging"]
+        if self.enable_logging:
+            from isaacgymenvs.utilities.tensor_history import TensorHistory, TensorIO
+            self.logging_filepath = self.cfg["env"]["logging"]["loggingFilePath"]
+            self._root_states_hist = TensorHistory(self.max_episode_length, self.root_states.shape, dtype=self.root_states.dtype, device=self.device)
+            self._root_states_io = TensorIO.new(
+                filepath = self.logging_filepath, 
+                tensor_shape = (self.max_episode_length,) + self.root_states.shape[1:], 
+                dataset_name = 'root_states'
+            )            
+            h5_file = self._root_states_io.file
+            self._actions_hist = TensorHistory(self.max_episode_length, self.actions.shape, dtype=self.actions.dtype, device=self.device)
+            self._actions_io = TensorIO(
+                file = h5_file, 
+                tensor_shape = (self.max_episode_length,) + self.actions.shape[1:], 
+                dataset_name = 'actions'
+            )
+            dof_state_shape = (self.num_envs, self.num_dof * 2)
+            self._dof_states_hist = TensorHistory(self.max_episode_length, dof_state_shape, dtype=self.dof_state.dtype, device=self.device)
+            self._dof_states_io = TensorIO(
+                file = h5_file, 
+                tensor_shape = (self.max_episode_length,) + dof_state_shape[1:],
+                dataset_name = 'dof_states'
+            )
+            self._obs_hist = TensorHistory(self.max_episode_length, self.obs_buf.shape, dtype=self.obs_buf.dtype, device=self.device)
+            self._obs_io = TensorIO(
+                file = h5_file, 
+                tensor_shape = (self.max_episode_length,) + self.obs_buf.shape[1:],
+                dataset_name = 'observations'
+            )
+            # Log some additional metadata
+            h5_file.attrs['dt'] = self.dt 
+            h5_file.attrs['max_episode_length'] = self.max_episode_length
+
     def post_physics_step(self):
+        # super().post_physics_step recalculates observations
+        # So we must log the observation used before that
+        if self.enable_logging:
+            self._obs_hist.update(self.obs_buf)
+
         super().post_physics_step()
         
         self._update_hist_amp_obs()
@@ -109,6 +148,11 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
+
+        if self.enable_logging:
+            self._root_states_hist.update(self.root_states)
+            self._actions_hist.update(self.actions)
+            self._dof_states_hist.update(torch.hstack([self.dof_pos, self.dof_vel]))
 
         return
 
@@ -163,6 +207,35 @@ class QuadrupedAMP(QuadrupedAMPBase):
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         self._init_amp_obs(env_ids)
+        
+        if self.enable_logging and len(env_ids) > 0:
+            # TODO: Make this work with early termination
+            # by logging only for the env_ids that were reset
+            assert not self._enable_early_termination
+            if len(self._root_states_hist) > 0:
+                root_states_history = self._root_states_hist.get_history()
+                # root_states_history comes in shape [max_ep_len, num_envs, root_state_dim]
+                # we want to transpose it to [num_envs, max_ep_len, root_state_dim]
+                root_states_history = torch.transpose(root_states_history, 0, 1)
+                self._root_states_io.write(root_states_history.detach().cpu().numpy())
+
+                actions_history = self._actions_hist.get_history()
+                actions_history = torch.transpose(actions_history, 0, 1)
+                self._actions_io.write(actions_history.detach().cpu().numpy())
+
+                dof_state_history = self._dof_states_hist.get_history()
+                dof_state_history = torch.transpose(dof_state_history, 0, 1)
+                self._dof_states_io.write(dof_state_history.detach().cpu().numpy())
+
+                obs_history = self._obs_hist.get_history()
+                obs_history = torch.transpose(obs_history, 0, 1)
+                self._obs_io.write(obs_history.detach().cpu().numpy())
+
+            self._root_states_hist.clear()
+            self._actions_hist.clear()
+            self._dof_states_hist.clear()
+            self._obs_hist.clear()
+        
         return
 
     def _reset_actors(self, env_ids):
