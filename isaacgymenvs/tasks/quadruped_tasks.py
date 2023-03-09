@@ -32,6 +32,7 @@ class AbstractTask(abc.ABC):
         self.device = device
         self.after_init()
         
+        self.progress_buf = torch.zeros(num_envs, dtype=torch.int64, device=self.device)
         env_ids = to_torch(range(0, self.num_envs), dtype=torch.int64, device=self.device)
         self.reset(env_ids)
 
@@ -40,7 +41,10 @@ class AbstractTask(abc.ABC):
 
     def reset(self, env_ids):
         """ Reset the task """
-        pass
+        self.progress_buf[:] = 0
+
+    def on_step(self):
+        self.progress_buf += 1
 
     def get_state(self):
         return None
@@ -69,9 +73,20 @@ class TargetVelocity(AbstractTask):
         self.target_direction = torch.zeros((self.num_envs, 3), dtype=self.dtype, device=self.device)
         self.target_speed = torch.zeros((self.num_envs, 1), dtype=self.dtype, device=self.device)
         self.target_yaw_rate = torch.zeros((self.num_envs, 1), dtype=self.dtype, device=self.device)
+
+        self.use_schedule = self.cfg["reset"]["schedule"]["enabled"]
+        if self.use_schedule:
+            target_velocity_schedule = np.load(self.cfg["reset"]["schedule"]["path"])
+            self.target_velocity_schedule = to_torch(target_velocity_schedule, device=self.device, dtype=self.dtype)
     
     def get_state(self):
         return torch.cat([self.target_direction, self.target_speed, self.target_yaw_rate], dim=-1)
+    
+    def on_step(self):
+        super().on_step()
+        if self.use_schedule:
+            self.target_direction[:] = self.target_velocity_schedule[self.progress_buf, :3]
+            self.target_speed[:] = self.target_velocity_schedule[self.progress_buf, 3:4]
     
     def reset(self, env_ids):
         """ Reset subset of commands """

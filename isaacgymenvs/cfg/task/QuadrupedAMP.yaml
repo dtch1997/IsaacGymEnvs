@@ -46,6 +46,10 @@ env:
   task:
     name: 'TargetVelocity'
     reset: 
+      schedule:
+        # TODO: Enable loading a scheduled target vel command from a file
+        enabled: False
+        path: schedule.npy 
       targetDirection:
         strategy: Fixed
         # 'Fixed' strategy params
