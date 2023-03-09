@@ -40,16 +40,16 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
         # Initialize loggers
         # TODO: find some way to avoid hardcoding these
         self.dt = 0.02
-        self.num_envs = 32
+        self.num_envs = 1024
         self.max_episode_len = 400
         # TODO: find some way to avoid hardcoding tensor shapes
         self.tensors: List[Tuple[str, int]] = [
             ("root_states", 13), 
             ("dof_pos", 12),
             ("dof_vel", 12), 
-            ("obs", 41), 
+            ("obs", 42), 
             ("prev_action", 12), 
-            ("task_state", 4)
+            ("task_state", 5)
         ]
         self.tensor_histories: Dict[str, TensorHistory] = {}
         self.tensor_ios: Dict[str, TensorIO] = {}
