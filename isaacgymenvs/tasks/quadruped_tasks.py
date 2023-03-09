@@ -62,49 +62,85 @@ class AbstractTask(abc.ABC):
 class TargetVelocity(AbstractTask): 
 
     def after_init(self):
-        self.target_direction_reset_strategy = self.cfg["targetDirection"]["reset_strategy"]
-        self.target_speed_lower = self.cfg["targetSpeedRange"]["lower"]
-        self.target_speed_upper = self.cfg["targetSpeedRange"]["upper"]
-        assert self.target_speed_lower <= self.target_speed_upper
+        self.target_direction_reset = self.cfg["reset"]["targetDirection"]
+        self.target_speed_reset = self.cfg["reset"]["targetSpeed"]
+        self.target_yaw_rate_reset = self.cfg["reset"]["targetYawRate"]
+
         self.target_direction = torch.zeros((self.num_envs, 3), dtype=self.dtype, device=self.device)
         self.target_speed = torch.zeros((self.num_envs, 1), dtype=self.dtype, device=self.device)
-
-    @staticmethod
-    def get_observation_dim():
-        return 3 + 1 # directional unit vector, target speed 
+        self.target_yaw_rate = torch.zeros((self.num_envs, 1), dtype=self.dtype, device=self.device)
     
     def get_state(self):
-        return torch.cat([self.target_direction, self.target_speed], dim=-1)
+        return torch.cat([self.target_direction, self.target_speed, self.target_yaw_rate], dim=-1)
     
     def reset(self, env_ids):
         """ Reset subset of commands """
-        if self.target_direction_reset_strategy == "random":
+        tar_dir_rs = self.target_direction_reset["strategy"]
+        if tar_dir_rs == "RandomUnitVector":
             self.reset_random_direction(env_ids)
-        elif self.target_direction_reset_strategy == "x":
-            self.reset_x_direction(env_ids)  
-        self.reset_random_speed(env_ids)
+        elif tar_dir_rs == "Fixed":
+            self.reset_fixed_direction(env_ids)
+        else: 
+            raise RuntimeError(f"Unrecognized reset strategy {tar_dir_rs}")
+        
+        tar_spe_rs = self.target_speed_reset["strategy"]
+        if tar_spe_rs == "RandomUniform":
+            self.reset_random_speed(env_ids)
+        else:
+            raise RuntimeError(f"Unrecognized reset strategy {tar_spe_rs}")
+        
+        tar_dyaw_rs = self.target_yaw_rate_reset["strategy"]
+        if tar_dyaw_rs == "Fixed":
+            self.reset_fixed_yaw_rate(env_ids)
+        elif tar_dyaw_rs == "RandomUniform":
+            self.reset_random_yaw_rate(env_ids)
+        else:
+            raise RuntimeError(f"Unrecognized reset strategy {tar_dyaw_rs}")
+
+    def reset_fixed_direction(self, env_ids):
+        """ Set all direction vectors to fixed value """
+        d = torch.zeros_like(self.target_direction[env_ids])
+        val = to_torch(self.target_direction_reset["value"])
+        d = torch.unsqueeze(val, 0)
+        self.target_direction[env_ids] = d
 
     def reset_random_direction(self, env_ids):
         # Sample a standard Gaussian
         d = torch.randn_like(self.target_direction[env_ids])
+
+        # We must have at least one axis
+        axis = self.target_direction_reset["axis"]
+        assert 1 <= len(axis) <= 3
+        assert set(char for char in axis).issubset(set(char for char in 'xyz'))
+        if 'z' not in self.target_direction_reset["axis"]:
+            # Zero out the z-axis
+            d[:, 2] = 0
         # Normalize it; the resulting unit vector is uniform on the hypersphere
         d = d / torch.norm(d, dim=-1, keepdim=True)
         self.target_direction[env_ids] = d
 
-    def reset_x_direction(self, env_ids):
-        """ Set all direction vectors to [1,0,0] """
-        d = torch.zeros_like(self.target_direction[env_ids])
-        d[:, 0] = 1
-        self.target_direction[env_ids] = d
-
     def reset_random_speed(self, env_ids):
+        """ Set speed to random speed """
         # Sample a standard uniform 
         v = torch.rand_like(self.target_speed[env_ids])
         # Translate from [0,1] to [l, u]
-        l, u = self.target_speed_lower, self.target_speed_upper
+        l, u = self.target_speed_reset["lower"], self.target_speed_reset["upper"]
         v = (u - l) * v + l
         self.target_speed[env_ids] = v
-    
+
+    def reset_fixed_yaw_rate(self, env_ids):
+        val = to_torch(self.target_yaw_rate_reset["value"])
+        dyaw = torch.unsqueeze(val, 0)
+        self.target_yaw_rate_reset[env_ids] = dyaw
+
+    def reset_random_yaw_rate(self, env_ids):
+        # Sample a standard uniform 
+        dyaw = torch.rand_like(self.target_yaw_rate[env_ids])
+        # Translate from [0,1] to [l, u]
+        l, u = self.target_yaw_rate_reset["lower"], self.target_yaw_rate_reset["upper"]
+        dyaw = (u - l) * dyaw + l
+        self.target_speed[env_ids] = dyaw
+ 
     def compute_reward(self, root_states: torch.Tensor):
         """
         args:
@@ -125,7 +161,12 @@ class TargetVelocity(AbstractTask):
         root_rot = root_states[:, 3:7]
         heading_rot = calc_heading_quat_inv(root_rot)
         target_direction_local = my_quat_rotate(heading_rot, target_direction)
-        return torch.cat([target_direction_local, target_speed], dim=-1)
+        target_yaw_rate = self.target_yaw_rate
+        return torch.cat([target_direction_local, target_speed, target_yaw_rate], dim=-1)
+    
+    @staticmethod
+    def get_observation_dim():
+        return 3 + 1 + 1 # directional unit vector, target speed, target yaw rate 
 
 # TODO: Refactor this into a class
 def compute_reward_target_location(root_states, target_pos):

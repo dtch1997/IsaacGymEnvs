@@ -45,12 +45,31 @@ env:
 
   task:
     name: 'TargetVelocity'
-    targetDirection:
-      reset_strategy: 'x'
-    targetSpeedRange:
-      lower: 0.0
-      upper: 2.0
-    velErrorScale: 1.0
+    reset: 
+      targetDirection:
+        strategy: Fixed
+        # 'Fixed' strategy params
+        value: [1, 0, 0]
+        # 'RandomUnitVector' strategy params
+        axis: 'xy' # random unit vector in xy-plane
+      targetSpeed:
+        strategy: RandomUniform
+        # 'Fixed' strategy params
+        value: 1.0 # m/s
+        # 'RandomUniform' strategy params
+        lower: 0.0 # lower bound, uniform distribution
+        upper: 2.0 # upper bound, uniform distribution 
+      targetYawRate:
+        strategy: Fixed
+        # 'Fixed' strategy params
+        value: 0.0 # rad/s 
+        # 'RandomUniform' strategy params
+        lower: 0.0 # lower bound, uniform distribution
+        upper: 0.4 # upper bound, uniform distribution
+    reward:
+      linear_velocity: 
+        scale: 1.0 
+        weight: 0.5    
 
   control:
     # PD Drive parameters:
