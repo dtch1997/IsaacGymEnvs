@@ -67,9 +67,9 @@ env:
         lower: 0.0 # lower bound, uniform distribution
         upper: 0.4 # upper bound, uniform distribution
     reward:
-      linear_velocity: 
+      linearVelocity: 
         scale: 1.0 
-        weight: 0.5    
+        weight: 1.0    
 
   control:
     # PD Drive parameters:

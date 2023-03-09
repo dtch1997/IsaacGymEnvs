@@ -149,7 +149,9 @@ class TargetVelocity(AbstractTask):
         root_vel = root_states[:, 7:10]
         dot_prod = torch.sum(root_vel * self.target_direction, dim=-1)
         target_speed = torch.squeeze(self.target_speed)
-        return exp_neg_sq((target_speed - dot_prod), alpha=self.cfg["velErrorScale"])
+        linvel_scale = self.cfg["reward"]["linearVelocity"]["scale"]
+        linvel_weight = self.cfg["reward"]["linearVelocity"]["weight"]
+        return linvel_weight * exp_neg_sq((target_speed - dot_prod), alpha=linvel_scale)
 
     def compute_observation(self, root_states: torch.Tensor):
         """
