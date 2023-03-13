@@ -18,6 +18,7 @@ pybullet = "^3.2.5"
 h5py = "^3.8.0"
 numpy = "<1.20"
 matplotlib = "<3.7"
+functorch = "^1.13.1"
 
 [tool.poetry.group.dev.dependencies]
 wandb = "^0.13.10"
