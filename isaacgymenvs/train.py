@@ -57,7 +57,10 @@ def launch_rlg_hydra(cfg: DictConfig):
         amp_players,
         amp_models,
         amp_network_builder,
-        quadruped_amp_players
+        quadruped_amp_players, 
+        viper_continuous,
+        viper_models,
+        viper_network_builder,
     )
     import isaacgymenvs
 
@@ -147,6 +150,11 @@ def launch_rlg_hydra(cfg: DictConfig):
         runner.player_factory.register_builder('amp_continuous', lambda **kwargs : amp_players.AMPPlayerContinuous(**kwargs))
         model_builder.register_model('continuous_amp', lambda network, **kwargs : amp_models.ModelAMPContinuous(network))
         model_builder.register_network('amp', lambda **kwargs : amp_network_builder.AMPBuilder())
+        runner.algo_factory.register_builder('viper_continuous', lambda **kwargs : viper_continuous.VIPERAgent(**kwargs))
+        runner.player_factory.register_builder('viper_continuous', lambda **kwargs :amp_players.AMPPlayerContinuous(**kwargs))
+        model_builder.register_model('continuous_viper', lambda network, **kwargs : viper_models.ModelVIPERContinuous(network))
+        model_builder.register_network('viper', lambda **kwargs : viper_network_builder.VIPERBuilder())
+        
         # runner.algo name is used to initialize both agent and player
         # therefore we need to register an agent for 'quadruped_amp' in order to use custom player
         runner.algo_factory.register_builder('quadruped_amp', lambda **kwargs : amp_continuous.AMPAgent(**kwargs))
