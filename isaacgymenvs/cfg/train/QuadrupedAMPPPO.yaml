@@ -21,7 +21,7 @@ params:
           name: const_initializer
           val: -2.9 # std = 1.
         fixed_sigma: True
-        learn_sigma: False
+        learn_sigma: True
 
     mlp:
       units: [256, 128, 64]
