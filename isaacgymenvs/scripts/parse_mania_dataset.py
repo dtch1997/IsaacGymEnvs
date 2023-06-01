@@ -79,6 +79,11 @@ if __name__ == "__main__":
         joint_angles = np.load(filepaths[2])['joint_angles']
         joint_angles = reorder_dofs(joint_angles.T).T
         frame_data = np.concatenate([base_position, base_orientation, joint_angles], axis=-1)
+        
+        n_timesteps = frame_data.shape[0]
+        start_time = int(n_timesteps * args.start_time_frac)
+        end_time = int(n_timesteps * args.end_time_frac)
+        frame_data = frame_data[start_time:end_time, ...]
 
         # Write motion data
         output_dir = pathlib.Path(args.output_dir)
