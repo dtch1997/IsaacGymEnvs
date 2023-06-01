@@ -185,7 +185,11 @@ def launch_rlg_hydra(cfg: DictConfig):
 
     if cfg.wandb_activate and rank == 0:
         # Enable wandb saving for all algorithms
-        wandb.save(f'runs/{cfg.task_name}/nn/{cfg.task_name}.pth')
+        import pathlib
+        savedir = pathlib.Path('runs') / cfg.task_name / 'nn'
+        for path in savedir.glob('**/*.pth'):
+            print("Saving ", path)
+            wandb.save(str(path))   
         wandb.finish()
 
 if __name__ == "__main__":
