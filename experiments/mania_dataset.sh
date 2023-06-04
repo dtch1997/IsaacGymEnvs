@@ -15,6 +15,8 @@ do
         wandb_project=QuadrupedASE \
         wandb_activate=True \
         wandb_group=$GROUP \
-        max_iterations=5000 \
-        wandb_name=mania${motionIdx}
+        max_iterations=2000 \
+        wandb_name=mania${motionIdx} \
+        task.env.control.stiffness=100.0 \
+        task.env.control.damping=2.0 \
 done
