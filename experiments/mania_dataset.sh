@@ -18,5 +18,5 @@ do
         max_iterations=2000 \
         wandb_name=mania${motionIdx} \
         task.env.control.stiffness=100.0 \
-        task.env.control.damping=2.0 \
+        task.env.control.damping=2.0
 done
