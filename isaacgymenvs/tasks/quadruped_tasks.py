@@ -70,14 +70,16 @@ class AbstractTask(abc.ABC):
 
 class DummyTask(AbstractTask):
 
-    def get_observation_dim(self):
+    def get_observation_dim():
         return 0
     
     def compute_reward(self, root_states: torch.Tensor):
-        return torch.ones(self.num_envs, dtype=self.dtype, device=self.device)
+        num_envs = root_states.shape[0]
+        return torch.ones(num_envs, dtype=self.dtype, device=self.device)
     
     def compute_observation(self, root_states: torch.Tensor):
-        return torch.zeros((self.num_envs, 0), dtype=self.dtype, device=self.device)
+        num_envs = root_states.shape[0]
+        return torch.zeros((num_envs, 0), dtype=self.dtype, device=self.device)
 
 class TargetVelocity(AbstractTask): 
 
