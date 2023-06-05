@@ -9,7 +9,8 @@ do
         task.env.urdfAsset.filepath=urdf/a1_mania.urdf \
         task.env.enableEarlyTermination=True \
         task.env.enableRefStateInitHeight=True \
-        train.params.network.space.continuous.learn_sigma=True \
+        task.env.task.name=Dummy \
+        train.params.network.space.continuous.learn_sigma=False \
         headless=True \
         wandb_entity=dtch1997 \
         wandb_project=QuadrupedASE \
