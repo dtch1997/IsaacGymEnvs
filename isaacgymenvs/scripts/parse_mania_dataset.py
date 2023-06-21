@@ -13,6 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-n", "--dataset-name", type=str, default="dataset")
     parser.add_argument("-s", "--start-time-frac", type=float, help="Start time as a fraction. E.g. 0.2 = start from 20% of the way in", default = 0.0)
     parser.add_argument("-e", "--end-time-frac", type=float, help="End time as a fraction. E.g. 0.8 = end at 80% of the way in", default = 1.0)
+    parser.add_argument("--dt", type=float, help="Time between frames", default = 0.002)
     args = parser.parse_args()
     return args
 
@@ -36,7 +37,7 @@ def reorder_dofs(dof_data: np.ndarray) -> np.ndarray:
     rl_data = dof_data[6:9, ...]
     return np.concatenate([fl_data, fr_data, rl_data, rr_data], axis=0)
 
-def write_motion_data(filepath: str, frames: np.ndarray, dt: float, loop_mode: str = 'Clamp', enable_cycle_offset_position: bool = True, enable_cycle_offset_rotation: bool = False):
+def write_motion_data(filepath: str, frames: np.ndarray, dt: float, loop_mode: str = 'Wrap', enable_cycle_offset_position: bool = True, enable_cycle_offset_rotation: bool = False):
     motion_data = {}
     motion_data["LoopMode"] = loop_mode
     motion_data["Frames"] = frames.tolist()
@@ -66,13 +67,15 @@ if __name__ == "__main__":
     output_filepaths = []
 
     for i in range(1, 9):
-        if (i == 5): continue # No 5 for some reason
         filepaths = [
             f'base_position{i}.npz',
             f'base_orientation{i}.npz',
             f'joint_angles{i}.npz'
         ]
         filepaths = [input_dir / fp for fp in filepaths]
+        if not all([fp.exists() for fp in filepaths]):
+            print(f"Data for motion {i} is missing. Skipping...")
+            continue
 
         base_position = np.load(filepaths[0])['base_position']
         base_orientation = np.load(filepaths[1])['base_orientation']
@@ -90,7 +93,7 @@ if __name__ == "__main__":
         output_dir.mkdir(parents=True, exist_ok=True)
         output_filepath = output_dir / f'motion{i}.txt'
         output_filepaths.append(output_filepath)
-        write_motion_data(output_filepath, frame_data, dt=0.02)
+        write_motion_data(output_filepath, frame_data, dt=args.dt)
 
     write_dataset(output_filepaths, output_dir / f'{args.dataset_name}.yaml')
 
