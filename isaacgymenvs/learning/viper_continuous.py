@@ -47,7 +47,7 @@ import isaacgymenvs.learning.common_agent as common_agent
 from tensorboardX import SummaryWriter
 
 
-class AMPAgent(common_agent.CommonAgent):
+class VIPERAgent(common_agent.CommonAgent):
 
     def __init__(self, base_name, params):
         super().__init__(base_name, params)

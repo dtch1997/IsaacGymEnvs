@@ -106,6 +106,7 @@ env:
     RR_calf_joint: -1.6     # [rad]
 
   urdfAsset:
+    filepath: 'urdf/a1.urdf'
     collapseFixedJoints: True
     fixBaseLink: False
     defaultDofDriveMode: 4 # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 4 effort)

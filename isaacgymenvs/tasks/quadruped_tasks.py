@@ -11,7 +11,7 @@ def exp_neg_sq(x: torch.Tensor, alpha: float = 1):
     return torch.exp(- alpha * x ** 2)
 
 class Task(Enum):
-    Zero = 0
+    Dummy = 0
     TargetLocation = 1 # Move to a specified goal location
     TargetHeading = 2 # Turn to face a specified heading direction
     TargetVelocity = 3 # Achieve a specified velocity
@@ -20,6 +20,8 @@ def get_task_class_by_name(task_name: str):
     task = Task[task_name]
     if task == Task.TargetVelocity:
         return TargetVelocity
+    elif task == Task.Dummy:
+        return DummyTask
     else:
         raise RuntimeError(f"Unrecognized task {task_name}")
 
@@ -65,6 +67,19 @@ class AbstractTask(abc.ABC):
     @abc.abstractmethod
     def compute_observation(self):
         pass 
+
+class DummyTask(AbstractTask):
+
+    def get_observation_dim():
+        return 0
+    
+    def compute_reward(self, root_states: torch.Tensor):
+        num_envs = root_states.shape[0]
+        return torch.ones(num_envs, dtype=self.dtype, device=self.device)
+    
+    def compute_observation(self, root_states: torch.Tensor):
+        num_envs = root_states.shape[0]
+        return torch.zeros((num_envs, 0), dtype=self.dtype, device=self.device)
 
 class TargetVelocity(AbstractTask): 
 
