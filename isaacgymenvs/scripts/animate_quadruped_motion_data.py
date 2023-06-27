@@ -25,7 +25,7 @@ def parse_arguments(description="Isaac Gym Example", headless=False, no_graphics
     parser.add_argument('--num_threads', type=int, default=0, help='Number of cores used by PhysX')
     parser.add_argument('--subscenes', type=int, default=0, help='Number of PhysX subscenes to simulate in parallel')
     parser.add_argument('--slices', type=int, help='Number of client threads that process env slices')
-    parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/motion7.txt')
+    parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/motion6.txt')
     # parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/dataset.yaml')
 
     for argument in custom_parameters:
@@ -226,10 +226,6 @@ if __name__ == "__main__":
         root_pos, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel = motion_lib.get_motion_state([0], [time * sim_params.dt])
         set_env_state(gym, sim, root_pos, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel)
         prev_char_pos = update_camera(gym, sim, viewer, root_pos[0], prev_char_pos)
-
-
-        print(root_ang_vel)
-
 
 
         # step the physics

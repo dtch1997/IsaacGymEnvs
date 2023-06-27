@@ -112,6 +112,7 @@ class TargetVelocity(AbstractTask):
     
     def get_goal_velocity(self):
         return torch.zeros_like(self.get_current_velocity())
+
     
     def compute_target_velocity(self):
         current_position = self.get_current_position()
@@ -134,6 +135,8 @@ class TargetVelocity(AbstractTask):
             target_velocity = self.compute_target_velocity()
             self.target_direction[:] = target_velocity / torch.norm(target_velocity, dim=-1, keepdim=True)
             self.target_speed[:] = torch.norm(target_velocity, dim=-1, keepdim=True)
+
+
         
 
     def reset(self, env_ids):
@@ -242,20 +245,22 @@ class TargetVelocity(AbstractTask):
     def get_observation_dim():
         return 3 + 1 + 1 # directional unit vector, target speed, target yaw rate 
 
-# TODO: Refactor this into a class
-def compute_reward_target_location(root_states, target_pos):
-    """
-    args: 
-        root_states - robot root states in world frame
-        target_location - desired location in world frame 
-    """
-    root_pos = root_states[: ,:3]
-    return torch.exp(exp_neg_sq(torch.norm(root_pos - target_pos))) 
+    # TODO: Refactor this into a class
+    def compute_reward_target_location(self):
+        """
+        args:
+            root_states - robot root states in world frame
+            target_location - desired location in world frame
 
-def compute_observation_target_location(root_states, target_pos):
-    root_pos = root_states[: ,:3]
-    root_rot = root_states[:, 3:7]
-    heading_rot = calc_heading_quat_inv(root_rot)
-    goal_pos = target_pos - root_pos
-    goal_pos_local = my_quat_rotate(goal_pos, heading_rot)
-    return goal_pos_local
+        """
+        root_pos = self.root_states[: ,:3]
+        return torch.exp(exp_neg_sq(torch.norm(root_pos - self.target_pos)))
+
+    def compute_observation_target_location(self):
+        root_pos = self.root_states[: ,:3]
+        root_rot = self.root_states[:, 3:7]
+        heading_rot = calc_heading_quat_inv(root_rot)
+        goal_pos = self.target_position_schedule - root_pos
+        goal_pos_local = my_quat_rotate(goal_pos, heading_rot)
+        return goal_pos_local
+
