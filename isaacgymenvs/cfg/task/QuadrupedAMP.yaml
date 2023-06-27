@@ -5,9 +5,11 @@ physics_engine: ${..physics_engine}
 
 env:
   # AMP-specific things
-  motionFile: 'data/motions/quadruped/mania_pos/dataset.yaml'
-#  motionFile: 'data/motions/quadruped/mania_pos/motion7.txt'
+  motionFile: 'data/motions/quadruped/mania_pos/motion6.txt'
   # End AMP-specific things
+
+  save_data: False
+
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
   episodeLength_s: 20
@@ -73,7 +75,7 @@ env:
         value: 1.0 # m/s
         # 'RandomUniform' strategy params
         lower: 0.6 # lower bound, uniform distribution
-        upper: 0.7 # upper bound, uniform distribution
+        upper: 0.6 # upper bound, uniform distribution
       targetYawRate:
         strategy: Fixed
         # 'Fixed' strategy params
@@ -135,9 +137,28 @@ env:
   enableCameraSensors: False
 
 
+  terrain:
+    terrainType: plane # none, plane, or trimesh
+    staticFriction: 1.0  # [-]
+    dynamicFriction: 1.0  # [-]
+    restitution: 0.        # [-]
+    # rough terrain only:
+    curriculum: true
+    maxInitMapLevel: 0
+    mapLength: 6.
+    mapWidth: 6.
+    numLevels: 10
+    numTerrains: 20
+    # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
+    terrainProportions: [0.05, 0.05, 0.1, 0.1, 0.05]
+    # tri mesh only:
+    slopeTreshold: 0.2
+#
+
+
 sim:
-  dt: 0.02
-  substeps: 2
+  dt: 0.002
+  substeps: 1
   up_axis: "z"
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
   gravity: [0.0, 0.0, -9.81]

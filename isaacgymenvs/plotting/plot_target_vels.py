@@ -2,6 +2,7 @@ import argparse
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Visualize expert dataset")
@@ -13,7 +14,13 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
 
     args = parse_args()
-    file = h5py.File(args.input_filepath)
+
+    file_path = os.getcwd()
+    file_name = args.input_filepath
+    file_path = f'{file_path}/{file_name}'
+
+
+    file = h5py.File(file_path)
     for key, value in file.attrs.items():
         print(f"{key}: {value}")
 

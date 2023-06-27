@@ -41,6 +41,7 @@ from isaacgymenvs.tasks.base.vec_task import VecTask
 from enum import Enum
 from typing import Tuple, Dict
 from isaacgymenvs.tasks.quadruped_tasks import get_task_class_by_name
+from .Terrain import Terrain
 
 class QuadrupedAMPBase(VecTask):
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
@@ -147,6 +148,14 @@ class QuadrupedAMPBase(VecTask):
         if self.viewer != None:
             self._init_camera()
 
+        #append to save errors
+        self.iteration_counter = torch.zeros(self.num_envs, device=self.device)
+        self.pos_errors = []
+        self.vel_erros = []
+        self._TESTING = self.cfg['env']['save_data']
+
+        self.terrain = Terrain(self.cfg["env"]["terrain"], num_robots=self.num_envs)
+
     def create_sim(self):
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
         self.sim = super().create_sim(self.device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
@@ -170,6 +179,24 @@ class QuadrupedAMPBase(VecTask):
         plane_params.static_friction = self.plane_static_friction
         plane_params.dynamic_friction = self.plane_dynamic_friction
         self.gym.add_ground(self.sim, plane_params)
+
+    def _create_trimesh(self):
+        """ Adds a triangle mesh terrain to the simulation, sets parameters based on the cfg."""
+        self.terrain = Terrain(self.cfg["env"]["terrain"], num_robots=self.num_envs)
+        tm_params = gymapi.TriangleMeshParams()
+        tm_params.nb_vertices = self.terrain.vertices.shape[0]
+        tm_params.nb_triangles = self.terrain.triangles.shape[0]
+        tm_params.transform.p.x = -self.terrain.border_size
+        tm_params.transform.p.y = -self.terrain.border_size
+        tm_params.transform.p.z = 0.0
+        tm_params.static_friction = self.cfg["env"]["terrain"]["staticFriction"]
+        tm_params.dynamic_friction = self.cfg["env"]["terrain"]["dynamicFriction"]
+        tm_params.restitution = self.cfg["env"]["terrain"]["restitution"]
+
+        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'),
+                                   self.terrain.triangles.flatten(order='C'), tm_params)
+        self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows,
+                                                                            self.terrain.tot_cols).to(self.device)
 
     def new_sub_terrain(self):
         # create all available terrain types
@@ -221,32 +248,6 @@ class QuadrupedAMPBase(VecTask):
         tm_params.transform.p.y = -1.
         self.gym.add_triangle_mesh(self.sim, vertices.flatten(), triangles.flatten(), tm_params)
 
-        #
-        # start_x = self.border + self.num_terains * self.length_per_env_pixels
-        # end_x = self.border + (self.num_terains + 1) * self.length_per_env_pixels
-        # start_y = self.border + self.num_terains * self.width_per_env_pixels
-        # end_y = self.border + (self.num_terains + 1) * self.width_per_env_pixels
-        # self.heightfield[start_x: end_x, start_y:end_y] = terrain.height_field_raw
-        #
-        # env_origin_x = (self.num_terains + 0.5) * self.terrain_length
-        # env_origin_y = (self.num_terains + 0.5) * self.terrain_width
-        # x1 = int((self.terrain_length / 2. - 1) / self.horizontal_scale)
-        # x2 = int((self.terrain_length/ 2. + 1) / self.horizontal_scale)
-        # y1 = int((self.terrain_width / 2. - 1) / self.horizontal_scale)
-        # y2 = int((self.terrain_width / 2. + 1) / self.horizontal_scale)
-        # self.env_origin_z = np.max(terrain.height_field_raw[x1:x2, y1:y2]) * self.vertical_scale
-        # # self.env_origins[self.num_terains, self.num_terains] = [env_origin_x, env_origin_y, self.env_origin_z]
-        #
-        # vertices, triangles = convert_heightfield_to_trimesh(self.heightfield, horizontal_scale=self.horizontal_scale,
-        #                                                      vertical_scale=self.vertical_scale, slope_threshold=1.5)
-        # tm_params = gymapi.TriangleMeshParams()
-        # tm_params.nb_vertices = vertices.shape[0]
-        # tm_params.nb_triangles = triangles.shape[0]
-        # tm_params.transform.p.x = -1.
-        # tm_params.transform.p.y = -1.
-        # self.gym.add_triangle_mesh(self.sim, vertices.flatten(), triangles.flatten(), tm_params)
-
-        #
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../assets')
@@ -372,8 +373,6 @@ class QuadrupedAMPBase(VecTask):
         self.compute_reward()
         self.compute_reset()
 
-        # print(self.root_states[:,7])
-        #
         self.extras["terminate"] = self._terminate_buf
         # Log some additional quantities for debugging
         self.extras["root_states"] = self.root_states
@@ -383,9 +382,25 @@ class QuadrupedAMPBase(VecTask):
         self.extras["obs"] = self.obs_buf 
         self.extras["prev_action"] = self.actions
 
+        #append error values
+        # if self._TESTING and torch.any(self.iteration_counter <= self.max_episode_length):
+        self.collect_evaluation_data()
+
+        self.iteration_counter += 1
+        
+        print(self.iteration_counter)
+
+
+        if self._TESTING and torch.any(self.iteration_counter == self.max_episode_length-1) :
+            self.save_evaluation_data()
+
+
         # debug viz
         if self.viewer and self.debug_viz:
             self._update_debug_viz()
+
+
+
 
     def compute_reward(self):
         self.rew_buf[:] = self.task.compute_reward(self.root_states)
@@ -453,6 +468,7 @@ class QuadrupedAMPBase(VecTask):
                                               gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
         self.progress_buf[env_ids] = 0
+        self.iteration_counter[env_ids] = 0
         self.reset_buf[env_ids] = 1
         self._terminate_buf[env_ids] = 0
 
@@ -531,7 +547,35 @@ class QuadrupedAMPBase(VecTask):
 
     ######################## Evaluation Functions ######################
 
-    # def collect_evaluation_data(self):
+    def save_evaluation_data(self):
+
+        #maz and min vels
+        min_vel = self.cfg['env']['task']['reset']['targetSpeed']['lower']
+        max_vel = self.cfg['env']['task']['reset']['targetSpeed']['upper']
+
+        vel = int(10*max_vel)
+
+
+        #save data after one episode:
+        torch.save(self.pos_errors, f'save_data/joint_angles_{vel}.pt')
+        torch.save(self.vel_erros, f'save_data/com_vels_{vel}.pt')
+        print('Data has been saved!')
+
+    def collect_evaluation_data(self):
+
+        if self.dof_pos.shape[0] > 1:
+            positions = torch.mean(self.dof_pos, axis=0)
+            velocities = torch.unsqueeze(torch.mean(self.root_states[:,7], axis=0), dim=-1)
+        else:
+            positions = self.dof_pos
+            velocities = self.root_states[:,7]
+
+        self.pos_errors.append(positions)
+        self.vel_erros.append(velocities)
+
+        check = 1
+
+
 
 
 
