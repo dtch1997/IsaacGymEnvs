@@ -109,6 +109,10 @@ class QuadrupedAMP(QuadrupedAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
+        if self._amp_obs_demo_buf is None:
+            self.extras["amp_obs_demo"] = self.fetch_amp_obs_demo(self.num_envs)
+        else:
+            self.extras["amp_obs_demo"] = self._amp_obs_demo_buf.view(-1, self.get_num_amp_obs())
 
         return
 
