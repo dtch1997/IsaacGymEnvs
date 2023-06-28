@@ -1,3 +1,19 @@
 motions:
+- file: motion1.txt
+  weight: 0.11111
+- file: motion2.txt
+  weight: 0.11111
+- file: motion3.txt
+  weight: 0.11111
+- file: motion4.txt
+  weight: 0.11111
+- file: motion5.txt
+  weight: 0.11111
 - file: motion6.txt
-  weight: 1.0
+  weight: 0.11111
+- file: motion7.txt
+  weight: 0.11111
+- file: motion8.txt
+  weight: 0.11111
+- file: motion9.txt
+  weight: 0.11111

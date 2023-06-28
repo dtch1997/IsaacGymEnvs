@@ -4,6 +4,8 @@ import numpy as np
 import os
 import pathlib
 import torch
+import csv
+from tabulate import tabulate
 import matplotlib.pyplot as plt
 
 
@@ -15,7 +17,7 @@ class Evaluation:
         self.num_files = num_files
         self.path_folder = os.path.dirname(os.getcwd())
         self._velocity = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-        self._plot_all_data = True
+        self._plot_all_data = False
         self._plot_all_errors = True
         self._desired_vel = int(10*vels)
         self.max_time =max_time
@@ -94,7 +96,7 @@ class Evaluation:
         names = [f'Commanded Velocity {self._desired_vel/10} (m/s)', "Time (s)", "Joint Angles Matching", "Error: Joint Angles Matching", "Time (s)",
                  "Error Joint Angles Matching"]
 
-        joint_angle_index = 0
+        joint_angle_index = 10
 
 
         self.error_joint_angles = []
@@ -124,7 +126,7 @@ class Evaluation:
 
     def process_velocity(self):
 
-        names = [f'Forward Linear Velocity {self._desired_vel} (m/s)', "Time (s)","Velocity (m/s)","Error:Forward Linear Velocity", "Time (s)","Error Velocity (m/s)" ]
+        names = [f'Forward Linear Velocity {self._desired_vel/10} (m/s)', "Time (s)","Velocity (m/s)","Error:Forward Linear Velocity", "Time (s)","Error Velocity (m/s)" ]
 
         self.error_vel = []
         self.errors = []
@@ -135,7 +137,7 @@ class Evaluation:
 
             vel = vel-1
 
-            sim_vel = np.array(self._sim_com_vels[vel])[:,0]
+            sim_vel = np.array(self._sim_com_vels[0])[:,0]
             target_vel = np.array([self._velocity[vel], ] * len(sim_vel))
 
             errors, error_vel = self.RMS_error(target_vel, sim_vel)
@@ -162,6 +164,34 @@ class Evaluation:
         return errors, error
 
 
+    def plot_data_vel_pos(self):
+        names = [f'Forward Linear Velocity {self._desired_vel / 10} (m/s)', "Time (s)", "Velocity (m/s)",
+                 "Joint Positions", "Time (s)", " Joint Positions"]
+        target = self.target_vel[self._desired_vel-1]
+
+        from matplotlib import pyplot as plt
+        fig, axs = plt.subplots(2, 1, figsize=(12, 5))
+        axs[0].plot(np.linspace(0, self.max_time, num=len(target)),self.sim_vel[self._desired_vel-1], color='black', linestyle="-",
+                    label="Measured")
+        axs[0].plot(np.linspace(0, self.max_time, num=len(target)),self.target_vel[self._desired_vel-1] , color='red', linestyle="--",
+                    label="Desired")
+        axs[0].legend()
+        axs[0].set_ylim([-0.5, 1.5])
+        axs[0].set_title(names[0])
+        axs[0].set_xlabel(names[1])
+        axs[0].set_ylabel(names[2])
+        axs[1].plot(np.linspace(0, self.max_time, num=len(target)), self.sim_joint_angles[self._desired_vel - 1], color='black', linestyle="-",
+                    label="Measured")
+        axs[1].plot(np.linspace(0, self.max_time, num=len(target)), self.target_joint_angles[self._desired_vel - 1], color='red', linestyle="--",
+                    label="Desired")
+        axs[1].legend()
+        axs[1].set_ylim([0,1.2])
+        axs[1].set_title(names[3])
+        axs[1].set_xlabel(names[4])
+        axs[1].set_ylabel(names[5])
+        plt.show()
+
+
     def plot_data(self,target,sim,names,errors):
 
         from matplotlib import pyplot as plt
@@ -171,7 +201,7 @@ class Evaluation:
         axs[0].plot(np.linspace(0, self.max_time, num=len(target)), target, color='red', linestyle="--",
                     label="Desired")
         axs[0].legend()
-        axs[0].set_ylim([-0.5, 1])
+        axs[0].set_ylim([-0.5, 1.5])
         axs[0].set_title(names[0])
         axs[0].set_xlabel(names[1])
         axs[0].set_ylabel(names[2])
@@ -185,6 +215,7 @@ class Evaluation:
         axs[1].set_xlabel(names[4])
         axs[1].set_ylabel(names[5])
         plt.show()
+
 
 
     def plot_all_data(self,target,sim,names):
@@ -209,9 +240,46 @@ class Evaluation:
         axs.set_ylabel(names[2])
         plt.show()
 
+    def get_error_table(self):
+        tables = []
+        total_error = []
+
+        # Open a file to write the table to.
+        with open('output.csv', 'w', newline='') as f:
+            # Create a writer object for the file.
+            writer = csv.writer(f)
 
 
-################################### Utils function ############################
+            for vel in self.velocity_index:
+                self.sum_error =  self.error_joint_angles[vel] + self.error_vel[vel]
+
+
+                data = [["joint_angles", self.error_joint_angles[vel]],
+                        ["com_vel", self.error_vel[vel]]]
+
+
+
+                col_names = ["Parameters", f"v = {self._velocity[vel]} m/s", ]
+
+                total_error.append(self.sum_error)
+
+                # Write the table to the file.
+                writer.writerow(col_names)
+                writer.writerows(data)
+
+                # Use the `tabulate()` function to create the table.
+                table = tabulate(data, headers=col_names)
+
+                # Add the table to the list of tables.
+                tables.append(table)
+
+            writer.writerow(["Total Error", total_error])
+        # Print the list of tables.
+
+        for table in tables:
+            print(table)
+
+    ################################### Utils function ############################
     def get_tensor_to_array(self,tensor):
 
         tensor_format = tensor[0]
@@ -229,6 +297,7 @@ class Evaluation:
 
         step = int(input.shape[0] /self._sim_joint_angles[0].shape[0])
         down_sampled_input = input[step-1::step]
+
         return down_sampled_input
 
 
@@ -238,13 +307,15 @@ if __name__ == "__main__":
 
     path = 'data/motions/quadruped/mania_pos_rew'
     num_files = 9
-    vel = 0.6
+    vel = 0.7
     max_time  = 20
     eval = Evaluation(path=path,num_files=num_files,vels=vel, max_time=max_time)
     eval.load_simulated_data()
     eval.load_target_data()
     eval.process_joint_angles()
     eval.process_velocity()
+    eval.plot_data_vel_pos()
+    eval.get_error_table()
 
 
 

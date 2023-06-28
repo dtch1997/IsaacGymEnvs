@@ -373,6 +373,7 @@ class QuadrupedAMPBase(VecTask):
         self.compute_reward()
         self.compute_reset()
 
+
         self.extras["terminate"] = self._terminate_buf
         # Log some additional quantities for debugging
         self.extras["root_states"] = self.root_states
@@ -387,11 +388,12 @@ class QuadrupedAMPBase(VecTask):
         self.collect_evaluation_data()
 
         self.iteration_counter += 1
-        
-        print(self.iteration_counter)
+
+        if self._TESTING:
+            print(self.iteration_counter)
 
 
-        if self._TESTING and torch.any(self.iteration_counter == self.max_episode_length-1) :
+        if self._TESTING and torch.any(self.iteration_counter == 9999) :
             self.save_evaluation_data()
 
 
