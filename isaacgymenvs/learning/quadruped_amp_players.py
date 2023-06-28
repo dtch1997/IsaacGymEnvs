@@ -40,8 +40,8 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
         # Initialize loggers
         # TODO: find some way to avoid hardcoding these
         self.dt = 0.02
-        self.num_envs = 1
-        self.max_episode_len = 2000
+        self.num_envs = 32
+        self.max_episode_len = 400
         # TODO: find some way to avoid hardcoding tensor shapes
         self.tensors: List[Tuple[str, int]] = [
             ("root_states", 13), 
@@ -72,6 +72,11 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
     def _post_step(self, info):
         super()._post_step(info)
         self._update_tensor_histories(info)
+        # Evaluate discriminator on amp obs, amp obs demo
+        disc_logit_amp_obs = self._eval_disc(info['amp_obs'])
+        disc_logit_amp_obs_demo = self._eval_disc(info['amp_obs_demo'])
+        print(f"disc_pred_amp_obs: {torch.sigmoid(disc_logit_amp_obs).mean()}")
+        print(f"disc_pred_amp_obs_demo: {torch.sigmoid(disc_logit_amp_obs_demo).mean()}")
         return
     
     def _env_reset_done(self):
