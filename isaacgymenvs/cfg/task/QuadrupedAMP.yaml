@@ -5,7 +5,7 @@ physics_engine: ${..physics_engine}
 
 env:
   # AMP-specific things
-  motionFile: 'data/motions/quadruped/mania_pos/motion6.txt'
+  motionFile: 'data/motions/quadruped/mania_pos/dataset.yaml'
   # End AMP-specific things
 
   save_data: False
@@ -74,8 +74,8 @@ env:
         # 'Fixed' strategy params
         value: 1.0 # m/s
         # 'RandomUniform' strategy params
-        lower: 0.6 # lower bound, uniform distribution
-        upper: 0.6 # upper bound, uniform distribution
+        lower: 0.1 # lower bound, uniform distribution
+        upper: 0.9 # upper bound, uniform distribution
       targetYawRate:
         strategy: Fixed
         # 'Fixed' strategy params
@@ -157,7 +157,7 @@ env:
 
 
 sim:
-  dt: 0.002
+  dt: 0.005
   substeps: 1
   up_axis: "z"
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
