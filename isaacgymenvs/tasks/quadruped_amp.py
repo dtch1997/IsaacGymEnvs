@@ -134,6 +134,8 @@ class QuadrupedAMP(QuadrupedAMPBase):
             motion_ids = self._motion_lib.sample_motions_targeted_velocity(num_samples,self.task.target_speed)
         else:
             motion_ids = self._motion_lib.sample_motions(num_samples)
+            vels = self.task.target_speed
+            check=1
 
 
         if (self._amp_obs_demo_buf is None):
@@ -222,6 +224,7 @@ class QuadrupedAMP(QuadrupedAMPBase):
             motion_ids = self._motion_lib.sample_motions_targeted_velocity(num_envs, self.task.target_speed)
         else:
             motion_ids = self._motion_lib.sample_motions(num_envs)
+
         
         if (self._state_init == QuadrupedAMP.StateInit.Random
             or self._state_init == QuadrupedAMP.StateInit.Hybrid):

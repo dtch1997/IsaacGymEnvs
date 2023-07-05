@@ -81,6 +81,10 @@ class TargetVelocity(AbstractTask):
         if self.use_schedule:
             target_velocity_schedule = np.load(self.cfg["reset"]["schedule"]["path"])
             self.target_velocity_schedule = to_torch(target_velocity_schedule, device=self.device, dtype=self.dtype)
+
+
+
+
         
         self.use_position_pd = self.cfg['reset']["position_pd_control"]["enabled"]
         if self.use_position_pd:
@@ -115,6 +119,15 @@ class TargetVelocity(AbstractTask):
 
     
     def compute_target_velocity(self):
+
+        Kp = torch.tensor(self.kp).cuda(0)
+        self.Kp = torch.cat([Kp] * 4).view(12, )
+
+        Kd = torch.tensor(self.kd).cuda(0)
+        self.Kd = torch.cat([Kd] * 4).view(12, )
+
+
+
         current_position = self.get_current_position()
         goal_position = self.get_goal_position()
         current_velocity = self.get_current_velocity()
@@ -194,14 +207,7 @@ class TargetVelocity(AbstractTask):
         v = (u - l) * v + l
         self.target_speed[env_ids] = v
 
-    # def reset_random_speed(self, env_ids):
-    #     """ Set speed to random speed """
-    #     # Sample a standard uniform
-    #     v = torch.rand_like(self.target_speed[env_ids])
-    #     # Translate from [0,1] to [l, u]
-    #     l, u = self.target_speed_reset["lower"], self.target_speed_reset["upper"]
-    #     v = (u - l) * v + l
-    #     self.target_speed[env_ids] = v
+
 
     def reset_fixed_yaw_rate(self, env_ids):
         val = to_torch(self.target_yaw_rate_reset["value"])

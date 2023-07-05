@@ -17,8 +17,11 @@ class Evaluation:
         self.num_files = num_files
         self.path_folder = os.path.dirname(os.getcwd())
         self._velocity = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
+
         self._plot_all_data = False
         self._plot_all_errors = True
+        self._plot_single_data = False
+
         self._desired_vel = int(10*vels)
         self.max_time =max_time
 
@@ -40,8 +43,8 @@ class Evaluation:
         self._ref_joint_angles , self._ref_base_or, self._ref_base_pos, self._ref_com_vels =  [] ,[], [], []
 
 
-        for i in range(self.num_files):
-            i = i + 1
+        for i in range(9):
+            i = (i+1)*10
             filepaths = [
                 f'base_position{i}.npz',
                 f'base_orientation{i}.npz',
@@ -60,6 +63,8 @@ class Evaluation:
             self._ref_base_pos.append(base_position)
             self._ref_com_vels.append(com_vels)
 
+        check = 1
+
     def load_simulated_data(self):
 
         self._sim_joint_angles, self._sim_base_or, self._sim_base_pos, self._sim_com_vels = [], [], [], []
@@ -67,8 +72,8 @@ class Evaluation:
 
         directory = os.path.join(self.path_folder, f'save_data/')
 
-        for i in range(1):
-            i=i+6
+        for i in range(9):
+            i=i+1
             filepaths = [
 
                 f'joint_angles_{i}.pt',
@@ -119,8 +124,8 @@ class Evaluation:
             self.error_joint_angles.append(error_ja)
             self.errors.append(errors)
 
-
-        self.plot_data(self.target_joint_angles[self._desired_vel-1], self.sim_joint_angles[self._desired_vel-1], names, self.errors[self._desired_vel])
+        if self._plot_single_data:
+            self.plot_data(self.target_joint_angles[self._desired_vel-1], self.sim_joint_angles[self._desired_vel-1], names, self.errors[self._desired_vel])
         if self._plot_all_data:
             self.plot_all_data(self.target_joint_angles,self.sim_joint_angles,names)
 
@@ -147,7 +152,10 @@ class Evaluation:
             self.sim_vel.append(sim_vel)
             self.target_vel.append(target_vel)
 
-        self.plot_data(self.target_vel[self._desired_vel-1], self.sim_vel[self._desired_vel-1],names,errors)
+
+
+        if self._plot_single_data:
+            self.plot_data(self.target_vel[self._desired_vel - 1], self.sim_vel[self._desired_vel - 1], names, errors)
         if self._plot_all_data:
             self.plot_all_data(self.target_vel, self.sim_vel,names)
 
@@ -185,7 +193,7 @@ class Evaluation:
         axs[1].plot(np.linspace(0, self.max_time, num=len(target)), self.target_joint_angles[self._desired_vel - 1], color='red', linestyle="--",
                     label="Desired")
         axs[1].legend()
-        axs[1].set_ylim([0,1.2])
+        axs[1].set_ylim([0,3])
         axs[1].set_title(names[3])
         axs[1].set_xlabel(names[4])
         axs[1].set_ylabel(names[5])
@@ -295,7 +303,10 @@ class Evaluation:
 
     def down_sample_ref(self,input):
 
-        step = int(input.shape[0] /self._sim_joint_angles[0].shape[0])
+        down_sample_step= self._sim_joint_angles[0].shape[0]
+
+
+        step = int(input.shape[0] /down_sample_step)
         down_sampled_input = input[step-1::step]
 
         return down_sampled_input
@@ -307,15 +318,14 @@ if __name__ == "__main__":
 
     path = 'data/motions/quadruped/mania_pos_rew'
     num_files = 9
-    vel = 0.7
+    vel = 0.9
     max_time  = 20
     eval = Evaluation(path=path,num_files=num_files,vels=vel, max_time=max_time)
     eval.load_simulated_data()
     eval.load_target_data()
-    eval.process_joint_angles()
     eval.process_velocity()
+    eval.process_joint_angles()
     eval.plot_data_vel_pos()
-    eval.get_error_table()
 
 
 
