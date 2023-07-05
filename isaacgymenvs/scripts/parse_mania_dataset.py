@@ -79,8 +79,8 @@ if __name__ == "__main__":
 
 
 
-    for i in range(9):
-        i = i+1
+    for i in range(41):
+        i = i + 30
         filepaths = [
             f'base_position{i}.npz',
             f'base_orientation{i}.npz',
@@ -134,7 +134,6 @@ if __name__ == "__main__":
         output_filepaths.append(output_filepath)
         write_motion_data(output_filepath, frame_data, dt=0.001)
 
-        i = i+2
 
     write_dataset(output_filepaths, output_dir / f'{args.dataset_name}.yaml')
 
