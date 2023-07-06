@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
 
 
-    for i in range(41):
+    for i in range(33):
         i = i + 30
         filepaths = [
             f'base_position{i}.npz',

@@ -603,10 +603,15 @@ class QuadrupedAMPBase(VecTask):
 
         vel = int(10*max_vel)
 
+        if self.cfg['env']['task']['reset']['schedule']['enabled']:
+            folder = 'save_data/blended'
+        else:
+            folder = 'save_data/single_vel'
+
 
         #save data after one episode:
-        torch.save(self.pos_errors, f'save_data/joint_angles_{vel}.pt')
-        torch.save(self.vel_erros, f'save_data/com_vels_{vel}.pt')
+        torch.save(self.pos_errors, f'{folder}/joint_angles_{vel}.pt')
+        torch.save(self.vel_erros, f'{folder}/com_vels_{vel}.pt')
         print('Data has been saved!')
 
     def collect_evaluation_data(self):
