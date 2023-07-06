@@ -24,7 +24,7 @@ def generate_sigmoid_speed_schedule(n_timesteps):
 
     # vel2 = np.array([np.round(random.random(), decimals =1),] * self.data_size)
     # vel2 = np.array([random.random(),] * n_timesteps)
-    vel2 = np.array([0.6, ] * n_timesteps)
+    vel2 = np.array([0.65, ] * n_timesteps)
 
     if vel1 is vel2:
         vel2 =[np.array(random.random()), ] * n_timesteps
@@ -53,9 +53,9 @@ def generate_sigmoid_velocity_steps(n_timesteps):
 
     data_size=n_timesteps
 
-    num_steps = int(10 * abs(vel1[0] - vel2[0])) + 1
-    vels_met = np.linspace(vel1[0], vel2[0], n_timesteps)
-    vel_range = int(10 * abs(vels_met[0] - vels_met[-1]))
+    num_steps = int(100 * abs(vel1[0] - vel2[0])) + 1
+    vels_met = np.linspace(vel1[0], vel2[0], num_steps)
+    vel_range = int(100 * abs(vels_met[0] - vels_met[-1]))
 
     if vel_range != 0:
         data_size_interval = int(n_timesteps/ vel_range)
@@ -75,7 +75,7 @@ def generate_sigmoid_velocity_steps(n_timesteps):
     data_size_interval = data_size_interval
 
     while i <= len(vels_met) - 2:
-        w = 0.8
+        w = 0.1
         D = np.linspace(0, 2, data_size_interval)
         sigmaD = 1.0 / (1.0 + np.exp(-(1 - D) / w))
         val = vels_met[i] + (vels_met[i + 1] - vels_met[i]) * (1 - sigmaD)
@@ -83,7 +83,7 @@ def generate_sigmoid_velocity_steps(n_timesteps):
         i = i + 1
 
     vals = np.array(vals)
-    velocity_profile = vals[:,0]
+    velocity_profile = vals.flatten()
 
     if velocity_profile.size != data_size:
         diff = velocity_profile.size - data_size
@@ -92,8 +92,7 @@ def generate_sigmoid_velocity_steps(n_timesteps):
 
 
     velocity = np.zeros((n_timesteps, 3))
-    velocity[:-1, 0] = velocity_profile
-    velocity[-1, 0] = velocity_profile[-1]
+    velocity[:, 0] = velocity_profile
     velocity[:,1] = np.zeros_like(velocity[:, 0])
     velocity[:, 2] = np.zeros_like(velocity[:, 0])
 
@@ -119,7 +118,7 @@ def generate_random_polar_direction_schedule(n_timesteps):
 
 def generate_cubic_spline_direction_schedule(n_timesteps):
     direction_schedule = np.zeros((n_timesteps, 2))
-    
+
     xs = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
     # Select random direction
     ys = np.random.normal(loc=np.zeros((xs.shape[0], 2)), scale=np.ones((xs.shape[0], 2)))
@@ -132,8 +131,8 @@ def generate_cubic_spline_direction_schedule(n_timesteps):
 
 if __name__ == "__main__":
     
-    n_timesteps = 101
-    ts = np.linspace(0, 1, n_timesteps)
+    n_timesteps = 10000
+    ts = np.linspace(0, 20, n_timesteps)
 
     # speed_schedule = generate_random_speed_schedule(n_timesteps)
     # direction_schedule = generate_random_polar_direction_schedule(n_timesteps)
@@ -141,7 +140,7 @@ if __name__ == "__main__":
     # combined_schedule = np.concatenate([velocity_schedule, speed_schedule], axis=-1)
 
 
-    velocity_schedule = generate_sigmoid_velocity_steps(n_timesteps)
+    velocity_schedule = generate_sigmoid_speed_schedule(n_timesteps)
     speed = velocity_schedule[:,0]
     speed_schedule = np.reshape(speed, (len(velocity_schedule[:,0]), 1))
 

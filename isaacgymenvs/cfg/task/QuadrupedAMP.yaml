@@ -13,7 +13,7 @@ env:
 
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 4.  # [m]
-  episodeLength_s: 8
+  episodeLength_s: 20
   cameraFollow: False # if the camera follows humanoid or not
   enableDebugVis: False
 
@@ -74,7 +74,7 @@ env:
       schedule:
         # TODO: Enable loading a scheduled target vel command from a file
         enabled: True
-        path: schedule.npy
+        path: schedule.npy   # schedule_100_steps.npy , schedule_10_steps.npy
       position_pd_control:
         # Implement a closed-loop controller for going to target position
         enabled: False

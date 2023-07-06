@@ -41,7 +41,7 @@ class QuadrupedAMPPlayerContinuous(amp_players.AMPPlayerContinuous):
         # TODO: find some way to avoid hardcoding these
         self.dt = 0.002
         self.num_envs = 32
-        self.max_episode_len = 4000
+        self.max_episode_len = 10000
         # TODO: find some way to avoid hardcoding tensor shapes
         self.tensors: List[Tuple[str, int]] = [
             ("root_states", 13), 
