@@ -74,7 +74,7 @@ env:
       schedule:
         # TODO: Enable loading a scheduled target vel command from a file
         enabled: True
-        path: schedule.npy   # schedule_100_steps.npy , schedule_10_steps.npy
+        path: schedule_10_steps.npy   # schedule_100_steps.npy , schedule_10_steps.npy
       position_pd_control:
         # Implement a closed-loop controller for going to target position
         enabled: False

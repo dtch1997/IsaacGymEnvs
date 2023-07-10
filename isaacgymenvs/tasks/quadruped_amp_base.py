@@ -411,6 +411,8 @@ class QuadrupedAMPBase(VecTask):
         self.task.on_step()
         self.progress_buf += 1
 
+
+
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
@@ -437,6 +439,7 @@ class QuadrupedAMPBase(VecTask):
 
         if self._TESTING:
             print(self.iteration_counter)
+            print('target speed:', self.task.target_speed)
 
 
         if self._TESTING and torch.any(self.iteration_counter == 9999) :

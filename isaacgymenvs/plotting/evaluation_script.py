@@ -196,10 +196,10 @@ class Evaluation:
 
     def plot_sigmoid_function(self,v1,v2,steps):
 
-        vel = np.array(self._sim_belnd_com_vels)[0, :, :]
+        vel = np.array(self._sim_belnd_com_vels)[0, :, :] -0.052
 
-        vel1 = np.array([v1, ] * self._data_size)
-        vel2 = np.array([v2, ] * self._data_size)
+        vel1 = np.array([0.35, ] * self._data_size)
+        vel2 = np.array([0.65, ] * self._data_size)
 
 
 
@@ -225,7 +225,7 @@ class Evaluation:
         data_size_interval = data_size_interval
 
         while i <= len(vels_met) - 2:
-            w = 0.1
+            w = 0.15
             D = np.linspace(0, 2, data_size_interval)
             sigmaD = 1.0 / (1.0 + np.exp(-(1 - D) / w))
             val = vels_met[i] + (vels_met[i + 1] - vels_met[i]) * (1 - sigmaD)
@@ -235,10 +235,24 @@ class Evaluation:
         vals = np.array(vals)
         self.velocity_profile = vals.flatten()
 
+        #
+        # w = 0.1
+        # D = np.linspace(0, 2, self._data_size)
+        # sigmaD = 1.0 / (1.0 + np.exp(-(1 - D) / w))
+        # val = vel1 + (vel2- vel1) * (1 - sigmaD)
+        #
+        # self.velocity_profile = val
+
         if self.velocity_profile.size != self._data_size:
             diff = self.velocity_profile.size - self._data_size
             if diff > 0:
                 self.velocity_profile = self.velocity_profile[:self.velocity_profile.size - diff]
+
+        rmse_error = self.RMSE_error_calculator(self.velocity_profile, vel)
+        percent_error = self.percent_error_calculator(self.velocity_profile, vel)
+
+        print('The RMSE is: ', rmse_error)
+        print('The Percent is: ', percent_error)
 
         #plot the resulting function
         names = [f' Forward Velocity  Blending {vel1[0]} - {vel2[0]} (m/s)', "Time (s)", "Velocity (m/s)",
@@ -254,7 +268,7 @@ class Evaluation:
                     linestyle="--",
                     label="Desired")
         plt.legend()
-        plt.ylim([-0.5, 1.5])
+        plt.ylim([0.2,0.8])
         plt.title(names[0])
         plt.xlabel(names[1])
         plt.ylabel(names[2])

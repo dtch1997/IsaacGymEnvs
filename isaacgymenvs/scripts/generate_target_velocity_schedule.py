@@ -24,7 +24,7 @@ def generate_sigmoid_speed_schedule(n_timesteps):
 
     # vel2 = np.array([np.round(random.random(), decimals =1),] * self.data_size)
     # vel2 = np.array([random.random(),] * n_timesteps)
-    vel2 = np.array([0.65, ] * n_timesteps)
+    vel2 = np.array([0.6, ] * n_timesteps)
 
     if vel1 is vel2:
         vel2 =[np.array(random.random()), ] * n_timesteps
@@ -34,10 +34,10 @@ def generate_sigmoid_speed_schedule(n_timesteps):
     sigmaD = 1.0 / (1.0 + np.exp(-(1 - D) / w))
     vels = vel1 + (vel2 - vel1) * (1 - sigmaD)
 
-    velocity = np.zeros((n_timesteps, 3))
-    velocity[:, 0] = vels
-    velocity[:,1] = np.zeros_like(vels)
-    velocity[:, 2] = np.zeros_like(vels)
+    # velocity = np.zeros((n_timesteps, 3))
+    velocity = vels
+    # velocity[:,1] = np.zeros_like(vels)
+    # velocity[:, 2] = np.zeros_like(vels)
 
     return velocity
 
@@ -53,9 +53,9 @@ def generate_sigmoid_velocity_steps(n_timesteps):
 
     data_size=n_timesteps
 
-    num_steps = int(100 * abs(vel1[0] - vel2[0])) + 1
+    num_steps = int(10 * abs(vel1[0] - vel2[0])) + 1
     vels_met = np.linspace(vel1[0], vel2[0], num_steps)
-    vel_range = int(100 * abs(vels_met[0] - vels_met[-1]))
+    vel_range = int(10 * abs(vels_met[0] - vels_met[-1]))
 
     if vel_range != 0:
         data_size_interval = int(n_timesteps/ vel_range)
@@ -91,10 +91,10 @@ def generate_sigmoid_velocity_steps(n_timesteps):
             velocity_profile = velocity_profile[:velocity_profile.size - diff]
 
 
-    velocity = np.zeros((n_timesteps, 3))
-    velocity[:, 0] = velocity_profile
-    velocity[:,1] = np.zeros_like(velocity[:, 0])
-    velocity[:, 2] = np.zeros_like(velocity[:, 0])
+    # velocity = np.zeros((n_timesteps, 3))
+    velocity = velocity_profile
+    # velocity[:,1] = np.zeros_like(velocity[:, 0])
+    # velocity[:, 2] = np.zeros_like(velocity[:, 0])
 
     return velocity
 
@@ -132,7 +132,9 @@ def generate_cubic_spline_direction_schedule(n_timesteps):
 if __name__ == "__main__":
     
     n_timesteps = 10000
-    ts = np.linspace(0, 20, n_timesteps)
+    num_episode = 1000
+    len_episode = 20
+
 
     # speed_schedule = generate_random_speed_schedule(n_timesteps)
     # direction_schedule = generate_random_polar_direction_schedule(n_timesteps)
@@ -140,16 +142,48 @@ if __name__ == "__main__":
     # combined_schedule = np.concatenate([velocity_schedule, speed_schedule], axis=-1)
 
 
-    velocity_schedule = generate_sigmoid_speed_schedule(n_timesteps)
+    sigmoid_data = np.empty((num_episode,n_timesteps))
+    for i in range(num_episode):
+        sigmoid_data[i]= generate_sigmoid_velocity_steps(n_timesteps)
+
+
+    velocity_schedule = np.zeros((sigmoid_data.shape[0]*sigmoid_data.shape[1],3))
+    velocity_schedule[:,0] = sigmoid_data.reshape(sigmoid_data.shape[0]*sigmoid_data.shape[1])
+
+
     speed = velocity_schedule[:,0]
     speed_schedule = np.reshape(speed, (len(velocity_schedule[:,0]), 1))
 
+
+
+    # Define the time steps
+    ts = np.linspace(0,20* sigmoid_data.shape[0],sigmoid_data.shape[0]*sigmoid_data.shape[1])
+
     # Visualize the schedule
-    import matplotlib.pyplot as plt 
-    plt.plot(ts, velocity_schedule)
+    import matplotlib.pyplot as plt
+    plt.plot(ts,velocity_schedule[:,0])
+
+    vals = []
+    labels = []
+
+    for i in range(num_episode):
+        plt.axvline(20*(i+1), color='black', linestyle='--')
+        val = 20*(i+1)
+        vals.append(val)
+        labels.append(str(val))
+
+
+
+    plt.ylabel('Forward Velocity (m/s)')
+    plt.xlabel('Episode Time')
+    # plt.xticks(vals,labels)
+
+
+    # Display the plot
     plt.show()
+
     combined_schedule= np.concatenate([velocity_schedule, speed_schedule], axis=-1)
 
     inp = input("[S]ave, or [E]xit\n")
     if inp.lower() == "s":
-        np.save('../schedule.npy', combined_schedule)
+        np.save('../schedule_10_steps.npy', combined_schedule)
