@@ -137,8 +137,9 @@ class AMPAgent(common_agent.CommonAgent):
             self.current_rewards = self.current_rewards * not_dones.unsqueeze(1)
             self.current_lengths = self.current_lengths * not_dones
         
-            if (self.vec_env.env.viewer and (n == (self.horizon_length - 1))):
-                self._amp_debug(infos)
+        if (self.vec_env.env.viewer and (n == (self.horizon_length - 1))):
+            self._amp_debug(infos)
+
 
         mb_fdones = self.experience_buffer.tensor_dict['dones'].float()
         mb_values = self.experience_buffer.tensor_dict['values']
@@ -511,8 +512,8 @@ class AMPAgent(common_agent.CommonAgent):
     def _calc_disc_rewards(self, amp_obs):
         with torch.no_grad():
             disc_logits = self._eval_disc(amp_obs)
-            prob = 1 / (1 + torch.exp(-disc_logits)) 
-            disc_r = -torch.log(torch.maximum(1 - prob, torch.tensor(0.0001, device=self.ppo_device)))
+            self.prob = 1 / (1 + torch.exp(-disc_logits))
+            disc_r = -torch.log(torch.maximum(1 - self.prob, torch.tensor(0.0001, device=self.ppo_device)))
             disc_r *= self._disc_reward_scale
         return disc_r
 
@@ -553,10 +554,15 @@ class AMPAgent(common_agent.CommonAgent):
             amp_obs = info['amp_obs']
             amp_obs = amp_obs[0:1]
             disc_pred = self._eval_disc(amp_obs)
+
             amp_rewards = self._calc_amp_rewards(amp_obs)
+            print(self.prob)
             disc_reward = amp_rewards['disc_rewards']
 
             disc_pred = disc_pred.detach().cpu().numpy()[0, 0]
             disc_reward = disc_reward.cpu().numpy()[0, 0]
-            print("disc_pred: ", disc_pred, disc_reward)
+            # print("disc_pred: ", disc_pred, disc_reward)
         return
+
+    def print_pred(self, disc_pred, disc_reward):
+            print("disc_pred: ", disc_pred, disc_reward)

@@ -1,0 +1,24 @@
+Parameters,v = 0.2 m/s
+joint_angles,9.872382721750675
+com_vel,13.633247811422981
+Parameters,v = 0.3 m/s
+joint_angles,11.041596230217127
+com_vel,23.61834722810618
+Parameters,v = 0.4 m/s
+joint_angles,11.649770197163457
+com_vel,33.612307354406845
+Parameters,v = 0.5 m/s
+joint_angles,13.7770883909184
+com_vel,43.60903674224912
+Parameters,v = 0.6 m/s
+joint_angles,14.039193603092272
+com_vel,53.606986163060455
+Parameters,v = 0.7 m/s
+joint_angles,19.339429436216797
+com_vel,63.605580300680195
+Parameters,v = 0.8 m/s
+joint_angles,20.15261645434654
+com_vel,73.6045564166105
+Parameters,v = 0.9 m/s
+joint_angles,22.24484735291412
+com_vel,83.60377745763478

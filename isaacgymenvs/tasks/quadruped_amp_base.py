@@ -34,11 +34,14 @@ from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
+from isaacgym.terrain_utils import *
+
 
 from isaacgymenvs.tasks.base.vec_task import VecTask
 from enum import Enum
 from typing import Tuple, Dict
 from isaacgymenvs.tasks.quadruped_tasks import get_task_class_by_name
+from .Terrain import Terrain
 
 class QuadrupedAMPBase(VecTask):
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
@@ -80,6 +83,11 @@ class QuadrupedAMPBase(VecTask):
         self.cfg["env"]["numObservations"] = 1 + 6 + 3 + 3 + 12 + 12 + task_obs_dim
         self.cfg["env"]["numActions"] = 12
 
+        # Terrain
+        self.curriculum = self.cfg["env"]["terrain"]["curriculum"]
+        self.height_samples = None
+        self.custom_origins = False
+
         # Call super init earlier to initialize sim params
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
@@ -90,7 +98,13 @@ class QuadrupedAMPBase(VecTask):
             dtype = torch.float32, 
             device = self.device
         )
-        self.dt = self.sim_params.dt
+
+
+        #TODO: Remove decimation
+
+        self.decimation = self.cfg["env"]["control"]["decimation"]
+        self.dt = self.decimation * self.sim_params.dt
+        # self.dt = self.sim_params.dt
         self.max_episode_length_s = self.cfg["env"]["episodeLength_s"]
         self.max_episode_length = int(self.max_episode_length_s / self.dt + 0.5)
         self.Kp = self.cfg["env"]["control"]["stiffness"]
@@ -121,6 +135,8 @@ class QuadrupedAMPBase(VecTask):
         self.default_dof_pos = torch.zeros_like(self.dof_pos, dtype=torch.float, device=self.device, requires_grad=False)
         self.default_dof_vel = torch.zeros_like(self.dof_vel, dtype=torch.float, device=self.device, requires_grad=False)
 
+
+
         for i in range(self.cfg["env"]["numActions"]):
             name = self.dof_names[i]
             angle = self.named_default_joint_angles[name]
@@ -139,10 +155,26 @@ class QuadrupedAMPBase(VecTask):
         if self.viewer != None:
             self._init_camera()
 
+        #append to save errors
+        self.iteration_counter = torch.zeros(self.num_envs, device=self.device)
+        self.pos_errors = []
+        self.vel_erros = []
+        self._TESTING = self.cfg['env']['save_data']
+
+
+
     def create_sim(self):
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
         self.sim = super().create_sim(self.device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
-        self._create_ground_plane()
+
+        terrain_type = self.cfg["env"]["terrain"]["terrainType"]
+
+        if terrain_type =='plane':
+            self._create_ground_plane()
+        else:
+            self._create_trimesh()
+            self.custom_origins = True
+
         self._create_envs(self.num_envs, self.cfg["env"]['envSpacing'], int(np.sqrt(self.num_envs)))
 
         # If randomizing, apply once immediately on startup before the fist sim step
@@ -156,6 +188,90 @@ class QuadrupedAMPBase(VecTask):
         plane_params.static_friction = self.plane_static_friction
         plane_params.dynamic_friction = self.plane_dynamic_friction
         self.gym.add_ground(self.sim, plane_params)
+
+    def _create_trimesh(self):
+        """ Adds a triangle mesh terrain to the simulation, sets parameters based on the cfg."""
+        self.terrain = Terrain(self.cfg["env"]["terrain"], num_robots=self.num_envs)
+        tm_params = gymapi.TriangleMeshParams()
+        tm_params.nb_vertices = self.terrain.vertices.shape[0]
+        tm_params.nb_triangles = self.terrain.triangles.shape[0]
+        tm_params.transform.p.x = -self.terrain.border_size
+        tm_params.transform.p.y = -self.terrain.border_size
+        tm_params.transform.p.z = 0.0
+        tm_params.static_friction = self.cfg["env"]["terrain"]["staticFriction"]
+        tm_params.dynamic_friction = self.cfg["env"]["terrain"]["dynamicFriction"]
+        tm_params.restitution = self.cfg["env"]["terrain"]["restitution"]
+
+        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'),
+                                   self.terrain.triangles.flatten(order='C'), tm_params)
+        self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows,
+                                                                            self.terrain.tot_cols).to(self.device)
+
+    def new_sub_terrain(self):
+        # create all available terrain types
+        self.num_terains = 1
+        self.terrain_width = 100
+        self.terrain_length = 100.
+        self.horizontal_scale = 0.1  # [m]
+        self.vertical_scale = 0.005  # [m]
+        self.num_rows = int(self.terrain_width / self.horizontal_scale)
+        self.num_cols = int(self.terrain_length / self.horizontal_scale)
+        self.border_size = 100.
+        self.border = int(self.border_size / self.horizontal_scale)
+
+
+        self.width_per_env_pixels = int(self.terrain_width / self.horizontal_scale)
+        self.length_per_env_pixels = int(self.terrain_length / self.horizontal_scale)
+
+        self.tot_cols = int(self.num_terains * self.width_per_env_pixels) + 2 * self.border
+        self.tot_rows = int(self.num_terains * self.length_per_env_pixels) + 2 * self.border
+
+        self.env_origins = np.zeros((self.num_terains, self.num_terains, 3))
+
+
+
+        self.heightfield = np.zeros((self.tot_rows, self.tot_cols), dtype=np.int16)
+
+
+
+        return SubTerrain(width=self.num_rows, length=self.num_cols, vertical_scale=self.vertical_scale,
+                          horizontal_scale=self.horizontal_scale)
+
+    def random_uniform_terrain(self):
+
+        terrain = self.new_sub_terrain()
+
+        self.border = int(self.border_size / self.horizontal_scale)
+
+
+
+        self.heightfield = random_uniform_terrain(self.new_sub_terrain(), min_height=-0.01, max_height=0.01,
+                                                            step=0.02, downsampled_scale=0.2).height_field_raw
+
+        vertices, triangles = convert_heightfield_to_trimesh(self.heightfield, horizontal_scale=self.horizontal_scale,
+                                                             vertical_scale=self.vertical_scale, slope_threshold=1.5)
+        tm_params = gymapi.TriangleMeshParams()
+        tm_params.nb_vertices = vertices.shape[0]
+        tm_params.nb_triangles = triangles.shape[0]
+        tm_params.transform.p.x = -1.
+        tm_params.transform.p.y = -1.
+        self.gym.add_triangle_mesh(self.sim, vertices.flatten(), triangles.flatten(), tm_params)
+
+
+    def update_terrain_level(self, env_ids):
+
+        """ Updates terrain level for curiculum learning, DONT LOOK"""
+
+        if not self.init_done or not self.curriculum:
+            # don't change on initial reset
+            return
+        distance = torch.norm(self.root_states[env_ids, :2] - self.env_origins[env_ids, :2], dim=1)
+        self.terrain_levels[env_ids] -= 1 * (distance < torch.norm(self.commands[env_ids, :2])*self.max_episode_length_s*0.25)
+        self.terrain_levels[env_ids] += 1 * (distance > self.terrain.env_length / 2)
+        self.terrain_levels[env_ids] = torch.clip(self.terrain_levels[env_ids], 0) % self.terrain.env_rows
+        self.env_origins[env_ids] = self.terrain_origins[self.terrain_levels[env_ids], self.terrain_types[env_ids]]
+
+
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../assets')
@@ -196,13 +312,19 @@ class QuadrupedAMPBase(VecTask):
         self.knee_indices = torch.zeros(len(knee_names), dtype=torch.long, device=self.device, requires_grad=False)
         self.base_index = 0
 
+        Kp = torch.tensor(self.cfg["env"]["control"]["stiffness"]).cuda(0)
+        self.Kp = torch.cat([Kp] * 4).view(12, )
+
+        Kd = torch.tensor(self.cfg["env"]["control"]["damping"]).cuda(0)
+        self.Kd = torch.cat([Kd] * 4).view(12, )
+
         dof_props = self.gym.get_asset_dof_properties(anymal_asset)
         self.dof_limits_lower = []
         self.dof_limits_upper = []
         for i in range(self.num_dof):
             dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
-            dof_props['stiffness'][i] = self.cfg["env"]["control"]["stiffness"] #self.Kp
-            dof_props['damping'][i] = self.cfg["env"]["control"]["damping"] #self.Kd
+            dof_props['stiffness'][i] = self.Kp[i]
+            dof_props['damping'][i] =self.Kd[i]
             if dof_props['lower'][i] > dof_props['upper'][i]:
                 self.dof_limits_lower.append(dof_props['upper'][i])
                 self.dof_limits_upper.append(dof_props['lower'][i])
@@ -212,6 +334,27 @@ class QuadrupedAMPBase(VecTask):
         self.dof_limits_lower = to_torch(self.dof_limits_lower, device=self.device)
         self.dof_limits_upper = to_torch(self.dof_limits_upper, device=self.device)
 
+        # generate random bright color
+        c = 0.5 + 0.5 * np.random.random(3)
+        c2 = 0.9 + 0.9* np.random.random(3)
+        color = gymapi.Vec3(c[0], c[1], c[2])
+        color2 = gymapi.Vec3(c2[0], c2[1], c2[2])
+
+        # Terrain: env origins
+        self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
+        self.curriculum = self.cfg["env"]["terrain"]["curriculum"]
+
+        if not self.curriculum: self.cfg["env"]["terrain"]["maxInitMapLevel"] = self.cfg["env"]["terrain"][
+                                                                                    "numLevels"] - 1
+        self.terrain_levels = torch.randint(0, self.cfg["env"]["terrain"]["maxInitMapLevel"] + 1, (self.num_envs,),
+                                            device=self.device)
+        self.terrain_types = torch.randint(0, self.cfg["env"]["terrain"]["numTerrains"], (self.num_envs,),
+                                           device=self.device)
+        if self.custom_origins:
+            self.terrain_origins = torch.from_numpy(self.terrain.env_origins).to(self.device).to(torch.float)
+            spacing = 0
+
+
         env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
         self.anymal_handles = []
@@ -219,12 +362,27 @@ class QuadrupedAMPBase(VecTask):
 
         for i in range(self.num_envs):
             # create env instance
+
             env_ptr = self.gym.create_env(self.sim, env_lower, env_upper, num_per_row)
+
+            ##Terrain
+            if self.custom_origins:
+                self.env_origins[i] = self.terrain_origins[self.terrain_levels[i], self.terrain_types[i]]
+                pos = self.env_origins[i].clone()
+                # pos[:2] += torch_rand_float(-1., 1., (2, 1), device=self.device).squeeze(1)
+                start_pose.p = gymapi.Vec3(*pos)
+
             anymal_handle = self.gym.create_actor(env_ptr, anymal_asset, start_pose, "anymal", i, 1, 0)
             self.gym.set_actor_dof_properties(env_ptr, anymal_handle, dof_props)
+            if i < self.num_envs/2 and self.cfg["env"]["motionFile"]=='data/motions/quadruped/mania_pos/dataset.yaml':
+                self.gym.set_rigid_body_color(env_ptr, anymal_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
+            else:
+                self.gym.set_rigid_body_color(env_ptr, anymal_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color2)
+
             self.gym.enable_actor_dof_force_sensors(env_ptr, anymal_handle)
             self.envs.append(env_ptr)
             self.anymal_handles.append(anymal_handle)
+
 
         for i in range(len(feet_names)):
             self.feet_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], feet_names[i])
@@ -237,14 +395,15 @@ class QuadrupedAMPBase(VecTask):
         self.actions = actions.to(self.device).clone()
         self.task.update_sim_state(self.root_states)
 
-        if (self._pd_control):
-            pd_tar = self._action_to_pd_targets(self.actions)
-            pd_tar_tensor = gymtorch.unwrap_tensor(pd_tar)
-            self.gym.set_dof_position_target_tensor(self.sim, pd_tar_tensor)
-        else:
-            forces = self.actions * self.motor_efforts.unsqueeze(0) * self.power_scale
-            force_tensor = gymtorch.unwrap_tensor(forces)
-            self.gym.set_dof_actuation_force_tensor(self.sim, force_tensor)
+        for _ in range(self.decimation):
+            if (self._pd_control):
+                pd_tar = self._action_to_pd_targets(self.actions)
+                pd_tar_tensor = gymtorch.unwrap_tensor(pd_tar)
+                self.gym.set_dof_position_target_tensor(self.sim, pd_tar_tensor)
+            else:
+                forces = self.actions * self.motor_efforts.unsqueeze(0) * self.power_scale
+                force_tensor = gymtorch.unwrap_tensor(forces)
+                self.gym.set_dof_actuation_force_tensor(self.sim, force_tensor)
 
         return
 
@@ -259,7 +418,8 @@ class QuadrupedAMPBase(VecTask):
         self.compute_observations()
         self.compute_reward()
         self.compute_reset()
-        
+
+
         self.extras["terminate"] = self._terminate_buf
         # Log some additional quantities for debugging
         self.extras["root_states"] = self.root_states
@@ -269,9 +429,26 @@ class QuadrupedAMPBase(VecTask):
         self.extras["obs"] = self.obs_buf 
         self.extras["prev_action"] = self.actions
 
+        #append error values
+        # if self._TESTING and torch.any(self.iteration_counter <= self.max_episode_length):
+        self.collect_evaluation_data()
+
+        self.iteration_counter += 1
+
+        if self._TESTING:
+            print(self.iteration_counter)
+
+
+        if self._TESTING and torch.any(self.iteration_counter == 9999) :
+            self.save_evaluation_data()
+
+
         # debug viz
         if self.viewer and self.debug_viz:
             self._update_debug_viz()
+
+
+
 
     def compute_reward(self):
         self.rew_buf[:] = self.task.compute_reward(self.root_states)
@@ -339,6 +516,7 @@ class QuadrupedAMPBase(VecTask):
                                               gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
         self.progress_buf[env_ids] = 0
+        self.iteration_counter[env_ids] = 0
         self.reset_buf[env_ids] = 1
         self._terminate_buf[env_ids] = 0
 
@@ -414,6 +592,49 @@ class QuadrupedAMPBase(VecTask):
         self._pd_action_scale = to_torch(self._pd_action_scale, device=self.device)
 
         return
+
+    ######################## Evaluation Functions ######################
+
+    def save_evaluation_data(self):
+
+        #maz and min vels
+        min_vel = self.cfg['env']['task']['reset']['targetSpeed']['lower']
+        max_vel = self.cfg['env']['task']['reset']['targetSpeed']['upper']
+
+        vel = int(10*max_vel)
+
+        if self.cfg['env']['task']['reset']['schedule']['enabled']:
+            folder = 'save_data/blended'
+        else:
+            folder = 'save_data/single_vel'
+
+
+        #save data after one episode:
+        torch.save(self.pos_errors, f'{folder}/joint_angles_{vel}.pt')
+        torch.save(self.vel_erros, f'{folder}/com_vels_{vel}.pt')
+        print('Data has been saved!')
+
+    def collect_evaluation_data(self):
+
+        if self.dof_pos.shape[0] > 1:
+            positions = torch.mean(self.dof_pos, axis=0)
+            velocities = torch.unsqueeze(torch.mean(self.root_states[:,7], axis=0), dim=-1)
+        else:
+            positions = self.dof_pos
+            velocities = self.root_states[:,7]
+
+        self.pos_errors.append(positions)
+        self.vel_erros.append(velocities)
+
+        check = 1
+
+
+
+
+
+
+
+
 
 #####################################################################
 ###=========================jit functions=========================###

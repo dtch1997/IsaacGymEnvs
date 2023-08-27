@@ -81,6 +81,10 @@ class TargetVelocity(AbstractTask):
         if self.use_schedule:
             target_velocity_schedule = np.load(self.cfg["reset"]["schedule"]["path"])
             self.target_velocity_schedule = to_torch(target_velocity_schedule, device=self.device, dtype=self.dtype)
+
+
+
+
         
         self.use_position_pd = self.cfg['reset']["position_pd_control"]["enabled"]
         if self.use_position_pd:
@@ -112,8 +116,18 @@ class TargetVelocity(AbstractTask):
     
     def get_goal_velocity(self):
         return torch.zeros_like(self.get_current_velocity())
+
     
     def compute_target_velocity(self):
+
+        Kp = torch.tensor(self.kp).cuda(0)
+        self.Kp = torch.cat([Kp] * 4).view(12, )
+
+        Kd = torch.tensor(self.kd).cuda(0)
+        self.Kd = torch.cat([Kd] * 4).view(12, )
+
+
+
         current_position = self.get_current_position()
         goal_position = self.get_goal_position()
         current_velocity = self.get_current_velocity()
@@ -134,6 +148,8 @@ class TargetVelocity(AbstractTask):
             target_velocity = self.compute_target_velocity()
             self.target_direction[:] = target_velocity / torch.norm(target_velocity, dim=-1, keepdim=True)
             self.target_speed[:] = torch.norm(target_velocity, dim=-1, keepdim=True)
+
+
         
 
     def reset(self, env_ids):
@@ -191,6 +207,8 @@ class TargetVelocity(AbstractTask):
         v = (u - l) * v + l
         self.target_speed[env_ids] = v
 
+
+
     def reset_fixed_yaw_rate(self, env_ids):
         val = to_torch(self.target_yaw_rate_reset["value"])
         dyaw = torch.unsqueeze(val, 0)
@@ -233,20 +251,22 @@ class TargetVelocity(AbstractTask):
     def get_observation_dim():
         return 3 + 1 + 1 # directional unit vector, target speed, target yaw rate 
 
-# TODO: Refactor this into a class
-def compute_reward_target_location(root_states, target_pos):
-    """
-    args: 
-        root_states - robot root states in world frame
-        target_location - desired location in world frame 
-    """
-    root_pos = root_states[: ,:3]
-    return torch.exp(exp_neg_sq(torch.norm(root_pos - target_pos))) 
+    # TODO: Refactor this into a class
+    def compute_reward_target_location(self):
+        """
+        args:
+            root_states - robot root states in world frame
+            target_location - desired location in world frame
 
-def compute_observation_target_location(root_states, target_pos):
-    root_pos = root_states[: ,:3]
-    root_rot = root_states[:, 3:7]
-    heading_rot = calc_heading_quat_inv(root_rot)
-    goal_pos = target_pos - root_pos
-    goal_pos_local = my_quat_rotate(goal_pos, heading_rot)
-    return goal_pos_local
+        """
+        root_pos = self.root_states[: ,:3]
+        return torch.exp(exp_neg_sq(torch.norm(root_pos - self.target_pos)))
+
+    def compute_observation_target_location(self):
+        root_pos = self.root_states[: ,:3]
+        root_rot = self.root_states[:, 3:7]
+        heading_rot = calc_heading_quat_inv(root_rot)
+        goal_pos = self.target_position_schedule - root_pos
+        goal_pos_local = my_quat_rotate(goal_pos, heading_rot)
+        return goal_pos_local
+
