@@ -34,3 +34,9 @@ runs/
 outputs/
 *.hydra*
 /isaacgymenvs/wandb
+isaacgymenvs/schedule.npy
+isaacgymenvs/schedule_100_steps.npy
+isaacgymenvs/schedule_10_steps.npy
+isaacgymenvs/schedule_10_steps.npy
+isaacgymenvs/learning/saved_checkpoints
+
