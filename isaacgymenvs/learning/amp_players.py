@@ -43,7 +43,7 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
         self._normalize_amp_input = config.get('normalize_amp_input', True)
         self._disc_reward_scale = config['disc_reward_scale']
         self._print_disc_prediction = config.get('print_disc_prediction', False)
-        
+
         super().__init__(params)
         return
 
@@ -71,10 +71,14 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
 
     def _build_net_config(self):
         config = super()._build_net_config()
+
+
+        # self.env.amp_observation_space.shape = (74,)
+
         if (hasattr(self, 'env')):
             config['amp_input_shape'] = self.env.amp_observation_space.shape
         else:
-            config['amp_input_shape'] = self.env_info['amp_observation_space']
+            config['amp_input_shape'] = (74,) #self.env_info['amp_observation_space']
         return config
 
     def _amp_debug(self, info):

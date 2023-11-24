@@ -26,20 +26,14 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import numpy as np
-import os
-import torch
-
 from gym import spaces
 from enum import Enum
-from isaacgym import gymtorch
-from isaacgym import gymapi
-from isaacgym.torch_utils import *
-from isaacgymenvs.utils.torch_jit_utils import *
+
 from isaacgymenvs.tasks.quadruped_amp_base import QuadrupedAMPBase, compute_quadruped_observations
 from isaacgymenvs.utilities.quadruped_motion_data import MotionLib
+from isaacgym import gymtorch
+from isaacgym.torch_utils import *
 
-from typing import Tuple, Dict
 
 def random_uniform(n: int, lower: torch.Tensor, upper: torch.Tensor, device):
     return torch.unsqueeze(upper - lower, 0) * torch.rand((n, ) + upper.shape, device=device)

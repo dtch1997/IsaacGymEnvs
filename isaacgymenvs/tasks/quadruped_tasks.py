@@ -82,9 +82,6 @@ class TargetVelocity(AbstractTask):
             target_velocity_schedule = np.load(self.cfg["reset"]["schedule"]["path"])
             self.target_velocity_schedule = to_torch(target_velocity_schedule, device=self.device, dtype=self.dtype)
 
-
-
-
         
         self.use_position_pd = self.cfg['reset']["position_pd_control"]["enabled"]
         if self.use_position_pd:

@@ -204,7 +204,7 @@ class AMPAgent(common_agent.CommonAgent):
 
         if self.is_rnn:
             frames_mask_ratio = rnn_masks.sum().item() / (rnn_masks.nelement())
-            print(frames_mask_ratio)
+
 
         for _ in range(0, self.mini_epochs_num):
             ep_kls = []
@@ -297,6 +297,10 @@ class AMPAgent(common_agent.CommonAgent):
 
         with torch.cuda.amp.autocast(enabled=self.mixed_precision):
             res_dict = self.model(batch_dict)
+            #
+            # traced_output = self.traced_forward(batch_dict)
+            # self.trace_model(traced_output)
+
             action_log_probs = res_dict['prev_neglogp']
             values = res_dict['values']
             entropy = res_dict['entropy']
@@ -329,6 +333,14 @@ class AMPAgent(common_agent.CommonAgent):
             else:
                 for param in self.model.parameters():
                     param.grad = None
+
+
+        # with torch.no_grad():
+        #     # Code involving the tensor with gradients
+        #     traced_model = torch.jit.trace(self.model.a2c_network, obs_dict)
+        #     torch.jit.save(traced_model, '/home/robohike/PAPER_AMP/traced_model_vel2.pt')
+
+
 
         self.scaler.scale(loss).backward()
         #TODO: Refactor this ugliest code of the year

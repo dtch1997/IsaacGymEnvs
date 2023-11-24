@@ -213,7 +213,8 @@ class VecTask(Env):
 
         # create envs, sim and viewer
         self.sim_initialized = False
-        self.create_sim()
+        if self.sim_initialized == False:
+            self.create_sim()
         self.gym.prepare_sim(self.sim)
         self.sim_initialized = True
 

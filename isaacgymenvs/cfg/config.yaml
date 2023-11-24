@@ -1,8 +1,8 @@
 
 # Task name - used to pick the class to load
-task_name: ${task.name}
+task_name: 'QuadrupedAMP'
 # experiment name. defaults to name of training config
-experiment: ''
+experiment: 'QuadrupedAMP'
 
 # if set to positive integer, overrides the default number of environments
 num_envs: ''
@@ -40,9 +40,9 @@ checkpoint: ''
 multi_gpu: False
 
 wandb_activate: False
-wandb_group: ''
-wandb_name: ${train.params.config.name}
-wandb_entity: ''
+wandb_group: 'maniast'
+wandb_name: QuadrupedAMPPO
+wandb_entity: 'maniast'
 wandb_project: 'isaacgymenvs'
 capture_video: False
 capture_video_freq: 1464
@@ -50,12 +50,12 @@ capture_video_len: 100
 force_render: True
 
 # disables rendering
-headless: False
+headless: True
 
 # set default task and default training config based on task
 defaults:
-  - task: Ant
-  - train: ${task}PPO
+  - task: 'QuadrupedAMPP'
+  - train: 'QuadrupedAMPPPO'
   - hydra/job_logging: disabled
 
 # set the directory where the output files get saved

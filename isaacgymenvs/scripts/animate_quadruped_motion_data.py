@@ -25,7 +25,7 @@ def parse_arguments(description="Isaac Gym Example", headless=False, no_graphics
     parser.add_argument('--num_threads', type=int, default=0, help='Number of cores used by PhysX')
     parser.add_argument('--subscenes', type=int, default=0, help='Number of PhysX subscenes to simulate in parallel')
     parser.add_argument('--slices', type=int, help='Number of client threads that process env slices')
-    parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/motion60.txt')
+    parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/motion8.txt')
     # parser.add_argument('-i', '--input-filepath', type=str, default='data/motions/quadruped/mania_pos/dataset.yaml')
 
     for argument in custom_parameters:
@@ -100,7 +100,7 @@ def init_camera(gym, sim, viewer):
     _cam_prev_char_pos = root_states[0, 0:3].cpu().numpy()
     
     cam_pos = gymapi.Vec3(_cam_prev_char_pos[0], 
-                            _cam_prev_char_pos[1] - 3.0, 
+                            _cam_prev_char_pos[1] - 3.0,
                             1.0)
     cam_target = gymapi.Vec3(_cam_prev_char_pos[0],
                                 _cam_prev_char_pos[1],

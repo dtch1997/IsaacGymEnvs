@@ -68,9 +68,11 @@ class CommonAgent(a2c_continuous.A2CAgent):
         self.network_path = config.get('network_path', "./runs")
         self.network_path = os.path.join(self.network_path, self.config['name'])
         self.network_path = os.path.join(self.network_path, 'nn')
+
         
         net_config = self._build_net_config()
         self.model = self.network.build(net_config)
+
         self.model.to(self.ppo_device)
         self.states = None
 
@@ -359,6 +361,8 @@ class CommonAgent(a2c_continuous.A2CAgent):
 
         with torch.cuda.amp.autocast(enabled=self.mixed_precision):
             res_dict = self.model(batch_dict)
+
+
             action_log_probs = res_dict['prev_neglogp']
             values = res_dict['value']
             entropy = res_dict['entropy']
@@ -485,6 +489,11 @@ class CommonAgent(a2c_continuous.A2CAgent):
         if self.normalize_input:
             processed_obs = self.model.norm_obs(processed_obs)
         value = self.model.a2c_network.eval_critic(processed_obs)
+        # traced_model = torch.jit.trace(self.model, processed_obs)
+        # # torch.jit.save(traced_model, '/home/robohike/PAPER_AMP/traced_model_vel2.pt')
+        # print('######## Network Traced ########## ')
+
+
 
         if self.normalize_value:
             value = self.value_mean_std(value, True)

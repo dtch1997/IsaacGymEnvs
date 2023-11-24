@@ -1,0 +1,5 @@
+[default]
+entity = maniast
+project = isaacgymenvs
+base_url = https://api.wandb.ai
+

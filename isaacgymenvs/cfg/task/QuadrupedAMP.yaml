@@ -1,20 +1,20 @@
 # used to create the object
 name: QuadrupedAMP
 
-physics_engine: ${..physics_engine}
+physics_engine: 'physx'
 
 env:
   # AMP-specific things
-#  motionFile: 'data/motions/quadruped/mania_pos/motion1.txt'
-  motionFile: 'data/motions/quadruped/mania_pos/dataset.yaml'
+  motionFile: 'data/motions/quadruped/mania_pos/motion70.txt'
+#  motionFile: 'data/motions/quadruped/mania_pos/dataset.yaml'
   # End AMP-specific things
 
   save_data: False
 
-  numEnvs: ${resolve_default:4096,${...num_envs}}
+  numEnvs: 4000
   envSpacing: 4.  # [m]
-  episodeLength_s: 20
-  cameraFollow: False # if the camera follows humanoid or not
+  episodeLength_s: 8
+  cameraFollow: True # if the camera follows humanoid or not
   enableDebugVis: False
 
   pdControl: True
@@ -58,7 +58,7 @@ env:
 
 
   baseInitState:
-    pos: [0.0, 0.0, 0.35] # x,y,z [m]
+    pos: [0.0, 0.0, 0.32] # x,y,z [m]
     rot: [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
     vLinear: [0.0, 0.0, 0.0]  # x,y,z [m/s]
     vAngular: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
@@ -73,8 +73,8 @@ env:
     reset: 
       schedule:
         # TODO: Enable loading a scheduled target vel command from a file
-        enabled: True
-        path: schedule_10_steps.npy   # schedule_100_steps.npy , schedule_10_steps.npy
+        enabled: False
+        path: schedule_10_steps.npy  #schedule_10_steps.npy #blended_schedule.npy   #schedule_100_steps.npy , schedule_10_steps.npy
       position_pd_control:
         # Implement a closed-loop controller for going to target position
         enabled: False
@@ -83,7 +83,7 @@ env:
         kD: [1., 0.5, 0.5]
       targetDirection:
         strategy: RandomUnitVector #Fixed
-        # 'Fixed' strategy params
+        # 'Fixed' strategy paramsQuadrupedAMP.yaml
         value: [1, 0, 0]
         # 'RandomUnitVector' strategy params
         axis: 'xy' # random unit vector in xy-plane
@@ -92,8 +92,8 @@ env:
         # 'Fixed' strategy params
         value: 1.0 # m/s
         # 'RandomUniform' strategy params
-        lower: 0.3 # lower bound, uniform distribution
-        upper: 0.6 # upper bound, uniform distribution
+        lower: 0.0 # lower bound, uniform distribution
+        upper: 0.8 # upper bound, uniform distribution
       targetYawRate:
         strategy: Fixed
         # 'Fixed' strategy params
@@ -157,7 +157,7 @@ env:
 
 
 sim:
-  dt: 0.002
+  dt: 0.01
   substeps: 1
   up_axis: "z"
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
@@ -165,7 +165,7 @@ sim:
   physx:
     num_threads: ${....num_threads}
     solver_type: ${....solver_type}
-    use_gpu: ${contains:"cuda",${....sim_device}} # set to False to run on CPU
+    use_gpu: True # set to False to run on CPU
     num_position_iterations: 4
     num_velocity_iterations: 1
     contact_offset: 0.02

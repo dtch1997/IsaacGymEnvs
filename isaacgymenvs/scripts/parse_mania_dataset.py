@@ -76,11 +76,8 @@ if __name__ == "__main__":
 
     output_filepaths = []
 
-
-
-
-    for i in range(33):
-        i = i + 30
+    for i in range(10):
+        i = 10
         filepaths = [
             f'base_position{i}.npz',
             f'base_orientation{i}.npz',

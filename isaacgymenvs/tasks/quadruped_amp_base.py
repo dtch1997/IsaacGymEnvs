@@ -28,13 +28,11 @@
 
 import numpy as np
 import os
-import torch
-
+from isaacgymenvs.utils.torch_jit_utils import *
+from isaacgym.terrain_utils import *
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
-from isaacgymenvs.utils.torch_jit_utils import *
-from isaacgym.terrain_utils import *
 
 
 from isaacgymenvs.tasks.base.vec_task import VecTask
@@ -158,7 +156,16 @@ class QuadrupedAMPBase(VecTask):
         #append to save errors
         self.iteration_counter = torch.zeros(self.num_envs, device=self.device)
         self.pos_errors = []
-        self.vel_erros = []
+        self.vel_errors = []
+        self.com_vel_errors =[]
+        self.base_pos_errors =[]
+        self.base_or_errors =[]
+        self.contact_errors = []
+
+
+
+
+
         self._TESTING = self.cfg['env']['save_data']
 
 
@@ -438,8 +445,8 @@ class QuadrupedAMPBase(VecTask):
         self.iteration_counter += 1
 
         if self._TESTING:
-            print(self.iteration_counter)
-            print('target speed:', self.task.target_speed)
+            # print(self.iteration_counter)
+            print('target speed:', self.task.target_speed[0])
 
 
         if self._TESTING and torch.any(self.iteration_counter == 9999) :
@@ -483,8 +490,8 @@ class QuadrupedAMPBase(VecTask):
                                                             self.dof_vel, 
                                                             self._local_root_obs
             )
-            task_obs = self.task.compute_observation(self.root_states)
-            self.obs_buf[:] = torch.hstack([quadruped_obs, task_obs])
+            self.task_obs = self.task.compute_observation(self.root_states)
+            self.obs_buf[:] = torch.hstack([quadruped_obs, self.task_obs])
 
         else:
             quadruped_obs = compute_quadruped_observations(  # tensors
@@ -493,8 +500,11 @@ class QuadrupedAMPBase(VecTask):
                                                             self.dof_vel[env_ids], 
                                                             self._local_root_obs
             )
-            task_obs = self.task.compute_observation(self.root_states)
-            self.obs_buf[env_ids] = torch.hstack([quadruped_obs, task_obs[env_ids]])
+            self.task_obs = self.task.compute_observation(self.root_states)
+            self.obs_buf[env_ids] = torch.hstack([quadruped_obs, self.task_obs[env_ids]])
+
+
+            check =1
 
     def reset_idx(self, env_ids):
         self._reset_actors(env_ids)
@@ -533,6 +543,8 @@ class QuadrupedAMPBase(VecTask):
         cam_target = gymapi.Vec3(self._cam_prev_char_pos[0],
                                  self._cam_prev_char_pos[1],
                                  1.0)
+
+
         self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
         return
 
@@ -548,8 +560,10 @@ class QuadrupedAMPBase(VecTask):
         cam_pos = np.array([cam_trans.p.x, cam_trans.p.y, cam_trans.p.z])
         cam_delta = cam_pos - self._cam_prev_char_pos
 
-        new_cam_target = gymapi.Vec3(char_root_pos[0], char_root_pos[1], 1.0)
-        new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0], 
+        # new_cam_target = gymapi.Vec3(char_root_pos[0], char_root_pos[1], 1.0)
+
+        new_cam_target = gymapi.Vec3(char_root_pos[0],3, 1.0)
+        new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0],
                                   char_root_pos[1] + cam_delta[1], 
                                   cam_pos[2])
 
@@ -614,22 +628,38 @@ class QuadrupedAMPBase(VecTask):
 
         #save data after one episode:
         torch.save(self.pos_errors, f'{folder}/joint_angles_{vel}.pt')
-        torch.save(self.vel_erros, f'{folder}/com_vels_{vel}.pt')
+        torch.save(self.com_vel_errors, f'{folder}/com_vels_{vel}.pt')
+        torch.save(self.contact_errors, f'{folder}/contacts_{vel}.pt')
+        torch.save(self.vel_errors, f'{folder}/joint_vels_{vel}.pt')
+        torch.save(self.base_pos_errors, f'{folder}/base_pos_{vel}.pt')
+        torch.save(self.base_or_errors, f'{folder}/base_or_{vel}.pt')
         print('Data has been saved!')
 
     def collect_evaluation_data(self):
 
         if self.dof_pos.shape[0] > 1:
             positions = torch.mean(self.dof_pos, axis=0)
-            velocities = torch.unsqueeze(torch.mean(self.root_states[:,7], axis=0), dim=-1)
+            com_velocities = torch.unsqueeze(torch.mean(self.root_states[:,7], axis=0), dim=-1)
+            acceler = torch.mean(self.dof_vel, axis=0)
+            base_pos = torch.unsqueeze(torch.mean(self.root_states[:,0:3], axis=0), dim=-1)
+            base_or = torch.unsqueeze(torch.mean(self.root_states[:,3:7], axis=0), dim=-1)
+            # contacts = torch.norm(self.contact_forces[11, self.feet_indices, :], dim=-1) > 1.
+
         else:
             positions = self.dof_pos
-            velocities = self.root_states[:,7]
+            com_velocities = self.root_states[:,7]
+            acceler = self.dof_vel
+            base_pos = self.root_states[:,0:3]
+            base_or = self.root_states[:,3:7]
+            # contacts = torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) > 1.
+
 
         self.pos_errors.append(positions)
-        self.vel_erros.append(velocities)
-
-        check = 1
+        self.com_vel_errors.append(com_velocities)
+        self.vel_errors.append(acceler)
+        self.base_pos_errors.append(torch.squeeze(base_pos, dim=1))
+        self.base_or_errors.append(torch.squeeze(base_or,dim=1))
+        # self.contact_errors.append(contacts.long())
 
 
 
@@ -676,30 +706,44 @@ def compute_quadruped_reset(
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
     return reset, terminated
 
-@torch.jit.script
+# @torch.jit.script
 def compute_quadruped_observations(root_states, dof_pos, dof_vel, local_root_obs):
     # type: (Tensor, Tensor, Tensor, bool) -> Tensor
+
+    # print('hey'
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
+
     root_vel = root_states[:, 7:10]
     root_ang_vel = root_states[:, 10:13]
 
     # Root h in m, 1-dim
-    # root_h = root_pos[:, 2:3]
+    root_h = root_pos[:, 2:3]
     dummy_root_h = torch.zeros_like(root_pos[:, 2:3])
+
     heading_rot = calc_heading_quat_inv(root_rot)
 
     # Root rot as tangent + normal Vec3, 6-dim
     if (local_root_obs):
         root_rot_obs = quat_mul(heading_rot, root_rot)
+        # print('after if ', root_rot_obs)
     else:
         root_rot_obs = root_rot
+
     root_rot_obs = quat_to_tan_norm(root_rot_obs)
 
     # Lin vel, 3-dim
     local_root_vel = my_quat_rotate(heading_rot, root_vel)
     # Ang vel, 3-dim
     local_root_ang_vel = my_quat_rotate(heading_rot, root_ang_vel)
+
+    # print('dummy_root_h',dummy_root_h.shape)
+    # print('root_rot_obs', root_rot_obs.shape)
+    # print('local_root_vel', local_root_vel.shape)
+    # print('local_root_ang_vel', local_root_ang_vel.shape)
+    # print('dof_pos',dof_pos.shape)
+    # print('dof_vel',dof_vel.shape)
+
 
     # Dof pos, dof vel, 12-dim each
     obs = torch.cat((dummy_root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_pos, dof_vel), dim=-1)

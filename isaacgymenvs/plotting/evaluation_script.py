@@ -104,12 +104,33 @@ class Evaluation:
             i = i + 6
             filepaths = [
                 f'joint_angles_{i}.pt',
-                f'com_vels_{i}.pt'
+                f'com_vels_{i}.pt',
+                f'base_or_{i}.pt',
+                f'base_pos_{i}.pt',
+                f'contacts_{i}.pt',
+                f'joint_vels_{i}.pt'
+
             ]
             filepaths = [directory + fp for fp in filepaths]
 
             joint_angles = self.get_tensor_to_array(torch.load(filepaths[0]))
             com_vels = self.get_tensor_to_array(torch.load(filepaths[1]))
+            base_pos = self.get_tensor_to_array(torch.load(filepaths[2]))
+            base_or = self.get_tensor_to_array(torch.load(filepaths[3]))
+            contacts = self.get_tensor_to_array(torch.load(filepaths[4]))
+            joint_vels = self.get_tensor_to_array(torch.load(filepaths[5]))
+
+
+            path = os.path.join(self.path_folder, f'save_data/numpy_data/')
+            vel =str(6)
+
+            # ##################### SAVE DATA  #########################
+            np.savez(os.path.join(path, 'com_vels' + vel + '.npz'), com_vels=com_vels)
+            np.savez(os.path.join(path, 'joint_angles' + vel + '.npz'), joint_angles=joint_angles)
+            np.savez(os.path.join(path, 'base_position' + vel + '.npz'), base_position=base_pos)
+            np.savez(os.path.join(path, 'base_orientation' + vel + '.npz'), base_orientation=base_or)
+            np.savez(os.path.join(path, 'joint_vels' + vel + '.npz'), joint_vels=joint_vels)
+            np.savez(os.path.join(path, 'foot_contacts' + vel + '.npz'), foot_contacts=contacts)
 
             self._sim_blend_joint_angles.append(np.vstack((joint_angles, joint_angles[-1, :])))
             self._sim_belnd_com_vels.append(np.vstack((com_vels, com_vels[-1, :])))
@@ -451,7 +472,7 @@ if __name__ == "__main__":
     eval = Evaluation(path=path,num_files=num_files,vels=vel, max_time=max_time,time_step=time_step)
     if blending:
         eval.load_sim_blended_data()
-        eval.plot_sigmoid_function(v1=0.3,v2=0.6,steps=10)
+        eval.plot_sigmoid_function(v1=0.35,v2=0.65,steps=10)
     else:
         eval.load_simulated_data()
         eval.load_target_data()

@@ -55,10 +55,21 @@ class ModelAMPContinuous(ModelA2CContinuousLogStd):
             return
 
         def forward(self, input_dict):
-            is_train = input_dict.get('is_train', True)
+
+            testing_nn = True
+            if testing_nn:
+                if isinstance(input_dict[0],tuple) == False:
+                     input_dict = [input_dict]
+
+                is_train = bool(input_dict[0][0].item())
+
+            else:
+                is_train = input_dict.get('is_train')
+
             result = super().forward(input_dict)
 
-            if (is_train):
+
+            if is_train:
                 amp_obs = input_dict['amp_obs']
                 disc_agent_logit = self.a2c_network.eval_disc(amp_obs)
                 result["disc_agent_logit"] = disc_agent_logit
