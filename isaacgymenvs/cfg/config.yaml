@@ -42,7 +42,7 @@ multi_gpu: False
 wandb_activate: False
 wandb_group: 'maniast'
 wandb_name: QuadrupedAMPPO
-wandb_entity: 'maniast'
+wandb_entity: ''
 wandb_project: 'isaacgymenvs'
 capture_video: False
 capture_video_freq: 1464

@@ -6,7 +6,6 @@ from isaacgymenvs.learning.quadruped_amp_players import QuadrupedAMPPlayerContin
 from rl_games.common import env_configurations, vecenv
 from typing import Dict
 import os
-import numpy as np
 import hydra
 import torch
 from isaacgymenvs.utils.rlgames_utils import RLGPUEnv, RLGPUAlgoObserver
@@ -19,7 +18,6 @@ from isaacgymenvs.learning import (
 )
 from rl_games.algos_torch import model_builder
 from isaacgymenvs.learning.DDPG import DDPG
-from isaacgymenvs.learning.PPO import PPO
 from isaacgymenvs.learning.replay_buffer import ReplayBuffer
 from rl_games.algos_torch import torch_ext
 import numpy as np
@@ -148,6 +146,20 @@ class HL_Player:
        filenames = [f'{self.path_checkpoint}/checkpoint_vel{vel+1}.pth' for vel in range(8)]
        return filenames
 
+    def _step_simulation(self):
+        is_deterministic = True
+        max_terations = 1000
+        velocity = -1
+
+        player = self.players[velocity]
+
+        self.obs_dict = self.envs.reset()
+
+        for i in range(max_terations):
+            self.obs_dict = self.envs.reset_done()
+            action = player.get_action(self.obs_dict[0],is_deterministic)
+            self.obs_dict, rew_buf, reset_buf, extras = self.envs.step(action)
+
     def _random_initialisation(self):
         is_deterministic = True
         max_iterations = 1
@@ -182,188 +194,110 @@ class HL_Player:
 
 
 
-    def _step_simulation(self):
-        is_deterministic = True
-        max_terations = 1
-        velocity = -1
+    def test(self):
 
-
-        player = self.players[velocity]
-
-        self.obs_dict = self.envs.reset()
-
-        for i in range(max_terations):
-            self.obs_dict = self.envs.reset_done()
-            action = player.get_action(self.obs_dict[0], is_deterministic)
-            self.obs_dict, rew_buf, reset_buf, extras = self.envs.step(action)
-
-    def decay_epsilon(self,initial_epsilon, min_epsilon, total_steps, current_step):
-        decay_factor = (initial_epsilon - min_epsilon) / total_steps
-        epsilon = max(min_epsilon, initial_epsilon - decay_factor * current_step)
-        return epsilon
-
-    def train(self):
-
-        log_dir = self.save_checkpoint
-        writer = SummaryWriter(log_dir=log_dir)
-
-        max_timesteps = 100000
+        max_timesteps = 1000
         self.num_of_low_level_policies = 4
-        H = 8  # time horizon to achieve subgoal
+        H = 20  # time horizon to achieve subgoal
         lr = 0.0001  # learning rate
-        n_training_iter = 50  # number of training iterations
-        batch_size = 400 # batch size
-        gamma = 0.99  # discount factor
-        buffer_size = 10000
-        device ='cuda:0'
-        critic_loss = torch.zeros(1).cuda(0)
-        actor_loss = critic_loss
-        last_reward = critic_loss
+        gamma = 0.99
 
 
-        buffer = ReplayBuffer(buffer_size,device)
+        obs, last_action = self._random_initialisation()
+        last_actions = torch.randint(self.num_of_low_level_policies, (self.num_agents, self.num_of_low_level_policies))
+
+        index = torch.Tensor([7, 40]).long()
+        sim_index = torch.round(10 * obs['obs'][:, -2]).cuda()
+
+        obs_hl = torch.cat([obs['obs'][:, index], torch.unsqueeze(sim_index, dim=1), last_action], 1)
 
 
-        obs,last_action = self._random_initialisation()
-        last_actions= torch.randint(self.num_of_low_level_policies,(self.num_agents,self.num_of_low_level_policies))
-
-        index = torch.Tensor([7,40]).long()
-        sim_index = torch.round(10*obs['obs'][:,-2]).cuda()
-
-        obs_hl = torch.cat([obs['obs'][:,index], torch.unsqueeze(sim_index,dim=1), last_action],1)
         state_dim = obs_hl.shape[1]
 
-        initial_epsilon = 0.1
-        min_epsilon = 0.01
 
         # Create a high level DDPG policy
         self.hlp = DDPG(state_dim,self.num_of_low_level_policies, lr, H, self.players, gamma)
 
-        for iteration in range(max_timesteps):
-            exploration_noise = torch.normal(mean=last_actions.float(), std=0.05).cuda(0)
-            epsilon = self.decay_epsilon(initial_epsilon,min_epsilon,max_timesteps,iteration)
+        checkpoint_name ='hl_best'
+        actor, critic = self.hlp.load(self.save_checkpoint,checkpoint_name)
+        # actor.eval()
+        # critic.eval()# Set the model to evaluation mode
 
-            ##### Select action
-            policy_to_use_dist = self.hlp.select_action(obs_hl,exploration_noise,epsilon)
-            # From policy_to_use distribution, select highest probability action
-            policy_to_use_dist = policy_to_use_dist.reshape(self.num_agents,self.num_of_low_level_policies)
-            policy_to_use = policy_to_use_dist.argmax(axis=1)
-            policy_index = np.array(policy_to_use)
-            print(policy_index)
+        #to store values
+        self.commanded_vel = []
+        self.base_vel =[]
+        self.selected_policy = []
 
 
-            ### Convert to Tensor
-            current_actions = torch.tensor(policy_to_use_dist).cuda(0)
-            current_action = torch.unsqueeze(torch.tensor(policy_index),dim=1).cuda(0)
+        with torch.no_grad():
+            for inference_iteration in range(max_timesteps):
+
+                exploration_noise = torch.normal(mean=last_actions.float(), std=0.1).cuda(0)
+                epsilon =0.10
+
+                # select action using the trained high-level policy
+                policy_to_use_dist = actor(obs_hl,exploration_noise).detach().cpu().data.numpy().flatten()
+                policy_to_use_dist = policy_to_use_dist.reshape(self.num_agents, self.num_of_low_level_policies)
+                policy_to_use = policy_to_use_dist.argmax(axis=1) #highest probability
+
+                current_actions = torch.tensor(policy_to_use_dist).cuda(0)
+                current_action = torch.unsqueeze(torch.tensor(policy_to_use), dim=1).cuda(0)
+
+                actions = []
+
+                for i in range(self.num_of_low_level_policies):
+                    target_number = i
+                    #group together policies with the same target gait
+                    NN_index = np.where(policy_to_use == target_number)[0]
+
+                    #pass corresponding obs space to corrsponding low-level NN
+                    if len(NN_index) != 0:
+                        NN_index_tensor = torch.tensor(NN_index).cuda(0)
+                        NN_obs = obs['obs'][NN_index_tensor, :]
+                        NN_obs_dict = {'obs': NN_obs}
+                        NN_action = self.players[i].get_action(NN_obs_dict)
+
+                        if NN_action.ndim == 1:
+                            NN_action = torch.unsqueeze(NN_action, dim=0).cuda(0)
+                        actions.append(NN_action)
 
 
-            #### Devide according to corresponding NN
-            NN_indices = []
-            actions = []
-            matching_reward = []
+                #low-level action
+                action = torch.cat(actions, dim=0)
 
-            for i in range(self.num_of_low_level_policies):
-                target_number = i
-                NN_index = np.where(policy_index==target_number)[0]
-                if len(NN_index) !=0:
-                    NN_index_tensor = torch.tensor(NN_index).cuda(0)
-                    NN_obs = obs['obs'][NN_index_tensor,:]
-                    NN_obs_dict = {'obs': NN_obs}
-                    NN_action = self.players[i].get_action(NN_obs_dict)
-
-                    #check if the commanded velocity corrresponds to the gait index
-                    vel = 10 * NN_obs[:, -2]
-                    # matching =  torch.abs(vel.round() - torch.tensor(target_number).cuda(0))
-                    # matching_reward.append(matching)
-
-                    if NN_action.ndim == 1:
-                        NN_action = torch.unsqueeze(NN_action, dim=0).cuda(0)
-                    actions.append(NN_action)
-
-            action = torch.cat(actions,dim=0)
-            # matching_reward=torch.cat(matching_reward,dim=0)
+                print('The commanded velocity: ', obs_hl[:,1])
+                print('The base velocity: ', obs_hl[:,0])
+                print('The selected action: ', policy_to_use)
+                print()
 
 
-            ### Low-level Env Step
-            next_obs, reward_sim, done, _ = self.envs.step(action)
+                #store values
+                self.commanded_vel.append(obs_hl[:,1])
+                self.base_vel.append(obs_hl[:,0])
+                self.selected_policy.append(policy_to_use)
+
+                #perform low level step
+                next_obs, reward_sim, done, _ = self.envs.step(action)
 
 
-            ### Reward engineering
-            index_matching = torch.abs(obs_hl[:,-2] - obs_hl[:,-1])
+                # reward = reward_sim - matching_reward[0]
 
-            if index_matching.max() ==0:
-                matching_reward_scale =1
-            else:
-                matching_reward_scale= index_matching.max()
+                # Update observations and last action
+                sim_index = torch.round(10 * obs['obs'][:, -2]).cuda()
+                next_obs_hl = torch.cat([next_obs['obs'][:, index], torch.unsqueeze(sim_index, dim=1), last_action], 1)
 
-            vel_matching = torch.abs(obs_hl[:,-2] - obs_hl[:,0])
+                obs = next_obs
+                obs_hl = next_obs_hl
+                last_action = current_action
 
-            reward = index_matching/matching_reward_scale
-                     # -0.5 * matching_reward/matching_reward_scale
-
-
-            ### Observations in the replay buffer
-            #Low level inputs
-            self.input_dict['obs'] = obs['obs']
-            self.input_dict['action'] = action
-            self.input_dict['reward'] = torch.unsqueeze(reward, dim=-1)
-            self.input_dict['next_obs'] = next_obs['obs']
-            self.input_dict['done'] = torch.unsqueeze(done,dim=-1)
-
-            # #High Level Inputs
-            sim_index = torch.round(10 * obs['obs'][:, -2]).cuda()
-            next_obs_hl = torch.cat([next_obs['obs'][:, index], torch.unsqueeze(sim_index, dim=1), last_action], 1)
-
-            self.input_dict['hl_obs'] = obs_hl
-            self.input_dict['hl_next_obs'] =next_obs_hl
-            self.input_dict['hl_action'] = current_actions
-            self.input_dict['hl_last_action'] = last_actions
-
-            # add to buffer
-            buffer.store(self.input_dict)
-
-            ### Update the obsrvations
-            # update obs and last action
-            obs = next_obs
-            obs_hl = next_obs_hl
-            last_action = current_action
-            last_actions = current_actions
-
-            ### Reset done environemnts
-            done_ids = done.nonzero(as_tuple=False).squeeze(-1)
-            if len(done_ids) > 0:
-                self.envs.reset_idx(done_ids)
-                obs, last_action = self._random_initialisation()
-
-            ### High level policy
-            if buffer._total_count >= batch_size:
-                critic_loss, actor_loss = self.hlp.update(buffer, n_training_iter, batch_size)
+                # Reset done environments
+                done_ids = done.nonzero(as_tuple=False).squeeze(-1)
+                if len(done_ids) > 0:
+                    self.envs.reset_idx(done_ids)
 
 
-            ### Logging
-            print(f'Iteration {iteration}/{max_timesteps}')
-
-            if iteration%200==0:
-                self.hlp.save(self.save_checkpoint, f'hl_{iteration}')
-
-                reward = torch.mean(reward).item()
-                # reward_vel= torch.mean(vel_matching).item()
-                reward_index = torch.mean(index_matching).item()
-
-                # writer.add_scalar("ENV - reward_vel", reward_vel, iteration)
-                writer.add_scalar("ENV - reward_match", reward_index, iteration)
-                # writer.add_scalar("ENV - Reward", reward,iteration)
-                writer.add_scalar("NN - critic loss", critic_loss, iteration)
-                writer.add_scalar("NN - actor loss", actor_loss, iteration)
-
-
-                print('Checkpoint Saved!')
-
-                if last_reward < reward:
-                    'save highest reward checkpoint'
-                    self.hlp.save(self.save_checkpoint, f'hl_best')
-                last_reward = reward
-
+    def data_evalaution(self):
+        pass
 
 
 
@@ -376,7 +310,8 @@ HL._get_config()
 HL._get_runner()
 HL._get_players()
 HL._create_env()
-HL.train()
+HL.test()
+# HL.data_evaluation()
 
 
 

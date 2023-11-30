@@ -11,7 +11,7 @@ env:
 
   save_data: False
 
-  numEnvs: 4000
+  numEnvs: 11
   envSpacing: 4.  # [m]
   episodeLength_s: 8
   cameraFollow: True # if the camera follows humanoid or not
@@ -25,7 +25,7 @@ env:
 
   localRootObs: True
   terminationHeight: 0.15
-  enableEarlyTermination: False
+  enableEarlyTermination: True
   enableRefStateInitHeight: False
 
   clipObservations: 5.0
@@ -93,7 +93,7 @@ env:
         value: 1.0 # m/s
         # 'RandomUniform' strategy params
         lower: 0.0 # lower bound, uniform distribution
-        upper: 0.8 # upper bound, uniform distribution
+        upper: 0.4 # upper bound, uniform distribution
       targetYawRate:
         strategy: Fixed
         # 'Fixed' strategy params

@@ -734,15 +734,9 @@ def compute_quadruped_observations(root_states, dof_pos, dof_vel, local_root_obs
 
     # Lin vel, 3-dim
     local_root_vel = my_quat_rotate(heading_rot, root_vel)
+
     # Ang vel, 3-dim
     local_root_ang_vel = my_quat_rotate(heading_rot, root_ang_vel)
-
-    # print('dummy_root_h',dummy_root_h.shape)
-    # print('root_rot_obs', root_rot_obs.shape)
-    # print('local_root_vel', local_root_vel.shape)
-    # print('local_root_ang_vel', local_root_ang_vel.shape)
-    # print('dof_pos',dof_pos.shape)
-    # print('dof_vel',dof_vel.shape)
 
 
     # Dof pos, dof vel, 12-dim each
